@@ -5,10 +5,10 @@
 //
 //	GFXselector16, 16x16@16, 
 //	Transparent color : 00,00,00
-//	+ bitmap not compressed
-//	Total size: 512 = 512
+//	+ bitmap lz77 compressed
+//	Total size: 84 = 84
 //
-//	Time-stamp: 2026-07-21, 00:08:52
+//	Time-stamp: 2026-08-06, 23:13:30
 //	Exported by Cearn's GBA Image Transmogrifier, v1.15.7-dirty
 //	( http://www.coranac.com/projects/#grit )
 //
@@ -17,8 +17,8 @@
 #ifndef GRIT_GFXSELECTOR16_H
 #define GRIT_GFXSELECTOR16_H
 
-#define GFXselector16BitmapLen 512
-extern const unsigned int GFXselector16Bitmap[128];
+#define GFXselector16BitmapLen 84
+extern const unsigned int GFXselector16Bitmap[21];
 
 #endif // GRIT_GFXSELECTOR16_H
 

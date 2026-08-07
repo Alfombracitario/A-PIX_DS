@@ -1,5 +1,6 @@
 #include "textconsole.h"
 #include "files.h"
+#include "effects.h"
 
 #include "GFXnewImageInput.h"
 #include "GFXconsoleInput.h"
@@ -18,6 +19,8 @@ extern char fname[];
 extern char format[];
 extern char currentFilePath[];
 extern bool mayus;
+
+bool updateSettings;//para settings
 
 //input
 const char *keyboardLower = "1234567890()#@qwertyuiop[]$^asdfghjkl/{}%!|zxcvbnm>>-_~=<<      ,.'`;+";
@@ -260,6 +263,106 @@ static bool handleFileConsole()
     return false;
 }
 
+
+typedef enum {
+    SETTINGS_LIST,
+    SETTINGS_EDIT
+} SettingsSubState;
+
+static SettingsSubState settingsState = SETTINGS_LIST;
+static int settingsSelector = 0;
+
+static void drawEffectsList(){
+    consoleClear();
+    printf("Settings");
+    printf("\n????????????????????????????????\n");
+    for(int i = 0; i < EFFECT_COUNT; i++){
+        const EffectEntry* e = &effects[i];
+        char cursor = (i == settingsSelector) ? '>' : ' ';
+        printf("%c %s\n", cursor, e->name);
+    }
+}
+
+static void drawEffectEdit(){
+    consoleClear();
+    EffectEntry* e = &effects[settingsSelector];
+    printf("%s\n\n", e->name);
+    printf("      < %3d >\n\n", e->paramValue);
+    printf("use Left/Right to adjust\n");
+    printf("A:accept|B:back\nSelect:quit\n");
+}
+
+static bool handleSettings(){
+    switch(settingsState){
+
+        case SETTINGS_LIST: {
+            bool redraw = false;
+
+            if(kDown & KEY_UP){
+                settingsSelector = (settingsSelector - 1 + EFFECT_COUNT) % EFFECT_COUNT;
+                redraw = true;
+            }
+            if(kDown & KEY_DOWN){
+                settingsSelector = (settingsSelector + 1) % EFFECT_COUNT;
+                redraw = true;
+            }
+            if(kDown & KEY_A){
+                EffectEntry* e = &effects[settingsSelector];
+                if(e->isToggle){
+                    applyEffect((EffectId)settingsSelector); // se aplica al toque
+                } else {
+                    settingsState = SETTINGS_EDIT;
+                }
+                redraw = true;
+            }
+            if(kDown & KEY_B){
+                return true; // cancelar
+            }
+
+            if(redraw){
+                if(settingsState == SETTINGS_LIST) drawEffectsList();
+                else drawEffectEdit();
+            }
+            break;
+        }
+
+        case SETTINGS_EDIT: {
+            EffectEntry* e = &effects[settingsSelector];
+
+            // repetición al mantener presionado, usando tu holdTimer existente
+            bool repeat = kHeld && holdTimer > 20 && (holdTimer % 4 == 0);
+
+            if((kDown & KEY_LEFT) || (repeat && (kHeld & KEY_LEFT))){
+                e->paramValue--;
+                if(e->paramValue < e->paramMin) e->paramValue = e->paramMin;
+                updateSettings = true;
+            }
+            if((kDown & KEY_RIGHT) || (repeat && (kHeld & KEY_RIGHT))){
+                e->paramValue ++;
+                if(e->paramValue > e->paramMax) e->paramValue = e->paramMax;
+                updateSettings = true;
+            }
+
+            if(updateSettings){
+                applyEffect((EffectId)settingsSelector); // preview en vivo arriba
+                drawEffectEdit();
+                updateSettings = false;
+            }
+
+            if(kDown & KEY_A){
+                settingsState = SETTINGS_LIST;
+                drawEffectsList();
+            }
+            if(kDown & KEY_B){
+                // ver nota de "cancelar" más abajo
+                settingsState = SETTINGS_LIST;
+                drawEffectsList();
+            }
+            break;
+        }
+    }
+    return false;
+}
 // ======================== ENTRY POINT ========================
 
 bool runTextConsole()
@@ -269,7 +372,7 @@ bool runTextConsole()
     kDown = 0;
     kHeld = 0;
     kUp   = 0;
-
+    
     while (true)
     {
         swiWaitForVBlank();
@@ -299,6 +402,9 @@ bool runTextConsole()
         else if (currentConsoleMode == LOAD_file)
         {
             if (handleFileConsole()) { currentConsoleMode = MODE_NO; return true; }
+        }
+        else if (currentConsoleMode == MODE_SETTINGS){
+            if (handleSettings()) { currentConsoleMode = MODE_NO; return true; }
         }
     }
 }

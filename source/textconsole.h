@@ -3,7 +3,7 @@
 
 // Enums compartidos con main.cpp
 enum subMode { SUB_TEXT, SUB_BITMAP };
-enum consoleMode { MODE_NO, LOAD_file, SAVE_file, IMAGE_SETTINGS, MODE_NEWIMAGE };
+enum consoleMode { MODE_NO, LOAD_file, SAVE_file, IMAGE_SETTINGS, MODE_NEWIMAGE, MODE_SETTINGS };
 
 // Variables de main.cpp que textconsole necesita
 extern u32 kDown;
@@ -26,6 +26,7 @@ extern int surfaceYres;
 extern int paletteBpp;
 extern int subSurfaceZoom;
 extern int palettePos;
+extern bool updateSettings;
 extern u16 palette[];
 extern u16 surface[];
 extern subMode currentSubMode;

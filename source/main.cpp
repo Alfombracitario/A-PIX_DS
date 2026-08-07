@@ -18,11 +18,6 @@
 
     swap de pantallas
     selector desde pantalla de arriba
-
-    Añadir settings
-        invertir colores
-        cambiar hue global
-        reducir colores (posterización)
 */
 #include <nds.h>
 #include <stdio.h>
@@ -92,7 +87,7 @@
 
 //===================================================================Variables================================================================
 static PrintConsole topConsole;
-// static PrintConsole bottomConsole;
+static PrintConsole subConsole;
 
 u16 surface[surfaceSize];//lienzo principal, si pudiera lo metería a dtcm
 u16 *pixelsTopVRAM = (u16 *)BG_GFX;
@@ -208,13 +203,14 @@ bool showBrushSettings = false;
 bool preview = true;
 bool redraw = true;
 
+u32 effectBackupPos = 0;
+
 // Variables globales para controlar el modo actual
 subMode currentSubMode = SUB_BITMAP;
 
 consoleMode currentConsoleMode = MODE_NO;
 
-enum
-{
+enum{
     ACTION_NONE = 0,
     ACTION_UP = 1 << 0,
     ACTION_DOWN = 1 << 1,
@@ -1025,22 +1021,24 @@ void setEditorSprites()
     gfxPalette = oamAllocateGfx(&oamSub, SpriteSize_64x64, SpriteColorFormat_Bmp);
 
     gfx32 = oamAllocateGfx(&oamSub, SpriteSize_32x32, SpriteColorFormat_Bmp);
-    dmaCopy(GFXselector24Bitmap, gfx32, 32 * 32 * 2);
+    decompress(GFXselector24Bitmap, gfx32, LZ77Vram);
     gfx16 = oamAllocateGfx(&oamSub, SpriteSize_16x16, SpriteColorFormat_Bmp);
-    dmaCopy(GFXselector16Bitmap, gfx16, 16 * 16 * 2);
+    decompress(GFXselector16Bitmap, gfx16, LZ77Vram);
     gfx8 = oamAllocateGfx(&oamSub, SpriteSize_8x8, SpriteColorFormat_Bmp);
-    dmaCopy(GFXselector8Bitmap, gfx8, 8 * 8 * 2);
+    decompress(GFXselector8Bitmap, gfx8, LZ77Vram);
     gfx5 = oamAllocateGfx(&oamSub, SpriteSize_8x8, SpriteColorFormat_Bmp);
-    dmaCopy(GFXselector5Bitmap, gfx5, 8 * 8 * 2);
+    decompress(GFXselector5Bitmap, gfx5, LZ77Vram);
 
     gfxBrushSettings = oamAllocateGfx(&oamSub, SpriteSize_32x16, SpriteColorFormat_Bmp);
-    dmaCopy(GFXbrushSettingsBitmap, gfxBrushSettings, 32 * 16 * 2);
+    decompress(GFXbrushSettingsBitmap, gfxBrushSettings, LZ77Vram);
     if(!nesMode){
+        
         gfxRGBsliders = oamAllocateGfx(&oamSub, SpriteSize_64x32, SpriteColorFormat_Bmp);
-        dmaCopy(GFXrgbSlidersBitmap, gfxRGBsliders, 64 * 32 * 2);
+        decompress(GFXrgbSlidersBitmap, gfxRGBsliders, LZ77Vram);
+        
     }
     gfxRgbSliderSel = oamAllocateGfx(&oamSub, SpriteSize_8x8, SpriteColorFormat_Bmp);
-    dmaCopy(GFXrgbSliderSelBitmap, gfxRgbSliderSel, 8 * 8 * 2);
+    decompress(GFXrgbSliderSelBitmap, gfxRgbSliderSel, LZ77Vram);
 
     oamSet(&oamSub, paletteOamId,
            192, 64,
@@ -1168,7 +1166,8 @@ void setEditorSprites()
 void setOamBG()
 {
     u16 *gfxBG = oamAllocateGfx(&oamSub, SpriteSize_32x32, SpriteColorFormat_Bmp);
-    dmaCopy(GFXbackgroundBitmap, gfxBG, 32 * 32 * 2);
+    decompress(GFXbackgroundBitmap, gfxBG, LZ77Vram);
+    
     for (int i = 0; i < 16; i++)
     {
         int x = ((i & 0b11) << 5) + SURFACE_X;
@@ -1229,7 +1228,37 @@ void initBitmap()
     setEditorSprites();
     setBackupVariables();
 }
-
+//====================================================================Backups==============================================================|
+void setBackupVariables()
+{
+    backupIndex = 0;
+    backupSize = 1 << surfaceXres << surfaceYres;
+    backupMax = BACKUP_SIZE/backupSize;
+    
+    // reinicia el backup
+    for (int i = 0; i < 131072; i++)
+    {
+        backup[i] = 0;
+    }
+}
+void backupWrite()
+{
+    backupIndex++;
+    if (backupIndex > backupMax)
+    {
+        backupIndex = 0;
+    }
+    int index = backupIndex * backupSize;
+    // copia surface a backup+ su index
+    dmaCopyHalfWords(2, surface, backup + index, backupSize * sizeof(u16));
+}
+void backupRead()
+{
+    // Calculamos el índice del bloque en el array backup
+    int index = backupIndex * backupSize;
+    dmaCopyHalfWords(2, backup + index, surface, backupSize * sizeof(u16));
+    accurate = true;
+}
 //====================================================================Compatibilidad con modos gráficos====================================|
 void textMode()
 {
@@ -1245,6 +1274,39 @@ void textMode()
     oamClear(&oamSub, 0, 128);
     oamUpdate(&oamSub);
 }
+void settingsMode(){
+    
+    backupWrite();
+    updateSettings = true;
+    consoleClear();
+
+    oamClear(&oamSub, 0, 128);
+
+    videoSetModeSub(MODE_0_2D);
+    vramSetBankC(VRAM_C_SUB_BG); // banco de VRAM para BG del engine B
+
+    consoleInit(&subConsole, 0, BgType_Text4bpp, BgSize_T_256x256, 31, 0, false, true);
+    consoleSetFont(&subConsole, &font);
+    
+    if (currentSubMode == SUB_TEXT)
+        return; // ya estamos en texto
+    currentSubMode = SUB_TEXT;
+    currentConsoleMode = MODE_SETTINGS;
+
+    runTextConsole();
+    //copiamos datos en caso de que el usuario cancele la operación
+    const u32 PALETTE_SIZE_U16 = 256; // 256 colores u16 = tamaño fijo de paleta
+
+    effectBackupPos = (backupIndex+1)*backupSize;
+
+    if(effectBackupPos + surfaceSize + PALETTE_SIZE_U16 > BACKUP_SIZE){ // BACKUP_SIZE en u16 también
+        effectBackupPos = 0;
+    }
+
+    dmaCopy(surface, backup+effectBackupPos,surfaceSize*sizeof(u16));
+    dmaCopy(palette, backup+effectBackupPos+surfaceSize, PALETTE_SIZE_U16*sizeof(u16));
+}
+
 int bgPreview;
 void textKeyboardDraw()
 {
@@ -1312,7 +1374,9 @@ void bitmapMode()
     bgSetScroll(bgMain, -previewXoffset, -previewYoffset);
     drawSurfaceBottom();
     oamUpdate(&oamSub);
+    drawColorPalette();
 }
+
 char bucketText[2][6] = {"Color", "Index"};
 void drawInfo()
 {
@@ -1331,39 +1395,10 @@ void drawInfo()
 #ifdef DEBUG_CPU
     u32 ticks = frameEndTime - frameStartTime;
     u32 cpuUsage = ((u64)(ticks) * 11732) >> 16;
-    printf("\n%d\n%lu", fps, cpuUsage);
+    u32 value = getBatteryLevel();
+    u32 battery_level = value & 0xF;
+    printf("\n%d\n%lu\n%d", fps, cpuUsage,battery_level);
 #endif
-}
-//====================================================================Backups==============================================================|
-void setBackupVariables()
-{
-    backupIndex = 0;
-    backupSize = 1 << surfaceXres << surfaceYres;
-    backupMax = BACKUP_SIZE/backupSize;
-    
-    // reinicia el backup
-    for (int i = 0; i < 131072; i++)
-    {
-        backup[i] = 0;
-    }
-}
-void backupWrite()
-{
-    backupIndex++;
-    if (backupIndex > backupMax)
-    {
-        backupIndex = 0;
-    }
-    int index = backupIndex * backupSize;
-    // copia surface a backup+ su index
-    dmaCopyHalfWords(2, surface, backup + index, backupSize * sizeof(u16));
-}
-void backupRead()
-{
-    // Calculamos el índice del bloque en el array backup
-    int index = backupIndex * backupSize;
-    dmaCopyHalfWords(2, backup + index, surface, backupSize * sizeof(u16));
-    accurate = true;
 }
 //============================================================= SD CARD ===============================================|
 void createAppFolder()
@@ -2140,9 +2175,12 @@ __attribute__((section(".itcm"))) int main(void)
 
         printf("ERROR: SD CARD NOT INITIATED.\n");
         printf("\x1b[38m\n"); // blanco
-        printf("You cannot load or save files.\n");
-        printf("This error may occur on flashcards if DLDI\n");
-        printf("patching was not done correctly.\n");
+        printf("You cannot load or save files.\n\n");
+        printf("Try launching from:\n");
+        printf(" TwiglightMenu++.\n");
+        if(isDSiMode()){
+            printf(" Unlaunch (DSi).\n");
+        }
 
         printf("\nStarting in 3 seconds");
         for (int i = 0; i < 3; i++) // cantidad segundos
@@ -2182,13 +2220,15 @@ __attribute__((section(".itcm"))) int main(void)
         timerReset();
         frameStartTime = timerRead();
         // verificar si siquiera hay un input en este frame
-        if ((kDown | kUp | kHeld) == 0)
+        if((kUp | kHeld) == 0)
         {
             goto frameEnd;
         }
-        touchRead(&touch);
-        
 
+        if(kHeld | KEY_TOUCH){
+            touchRead(&touch);
+        }
+        
         // if(screensSwapped == false){
         if (kUp & KEY_TOUCH)
         { // permitir volver a dibujar en un pixel
@@ -2447,7 +2487,9 @@ __attribute__((section(".itcm"))) int main(void)
                             textKeyboardDraw();
                             runTextConsole();
                         break;
-                            // PLACEHOLDER el caso 3 está libre por ahora :> (pienso usarlo para configuración en un futuro)
+                        case 3: // Open config
+                            settingsMode();
+                        break;
                         }
                     }
                     // botones del costado derecho en la izquierda

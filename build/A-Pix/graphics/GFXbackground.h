@@ -4,11 +4,11 @@
 //======================================================================
 //
 //	GFXbackground, 32x32@16, 
-//	Transparent color : 00,00,00
-//	+ bitmap not compressed
-//	Total size: 2048 = 2048
+//	Alphabit on.
+//	+ bitmap lz77 compressed
+//	Total size: 256 = 256
 //
-//	Time-stamp: 2026-07-21, 00:08:48
+//	Time-stamp: 2026-08-06, 23:13:27
 //	Exported by Cearn's GBA Image Transmogrifier, v1.15.7-dirty
 //	( http://www.coranac.com/projects/#grit )
 //
@@ -17,8 +17,8 @@
 #ifndef GRIT_GFXBACKGROUND_H
 #define GRIT_GFXBACKGROUND_H
 
-#define GFXbackgroundBitmapLen 2048
-extern const unsigned int GFXbackgroundBitmap[512];
+#define GFXbackgroundBitmapLen 256
+extern const unsigned int GFXbackgroundBitmap[64];
 
 #endif // GRIT_GFXBACKGROUND_H
 

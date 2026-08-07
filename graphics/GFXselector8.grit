@@ -1,2 +1,1 @@
-# 16 bpp, bitmap
--gB16 -gb -gT000000
+-gB16 -gb -gT -gz l

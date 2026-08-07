@@ -4,11 +4,11 @@
 //======================================================================
 //
 //	GFXrgbSliders, 64x32@16, 
-//	Transparent color : 12,34,56
-//	+ bitmap not compressed
-//	Total size: 4096 = 4096
+//	Alphabit on.
+//	+ bitmap lz77 compressed
+//	Total size: 1780 = 1780
 //
-//	Time-stamp: 2026-07-21, 00:08:51
+//	Time-stamp: 2026-08-06, 23:13:29
 //	Exported by Cearn's GBA Image Transmogrifier, v1.15.7-dirty
 //	( http://www.coranac.com/projects/#grit )
 //
@@ -17,8 +17,8 @@
 #ifndef GRIT_GFXRGBSLIDERS_H
 #define GRIT_GFXRGBSLIDERS_H
 
-#define GFXrgbSlidersBitmapLen 4096
-extern const unsigned int GFXrgbSlidersBitmap[1024];
+#define GFXrgbSlidersBitmapLen 1780
+extern const unsigned int GFXrgbSlidersBitmap[445];
 
 #endif // GRIT_GFXRGBSLIDERS_H
 

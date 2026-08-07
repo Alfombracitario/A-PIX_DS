@@ -152,7 +152,7 @@ void updateStars(int i) {
 }
 
 void genGradient(){
-    u8 isGreen = (rand() % 50  == 0) ? 5 : 0;//Easter egg!
+    isGreen = (rand() % 50  == 0) ? 5 : 0;//Easter egg!
     static int frame = 0;
     if(frame > 31) {return;}
     int maxR = MIN(frame,30)>>1;

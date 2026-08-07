@@ -1,5 +1,5 @@
-build/A-Pix/source/textconsole.cpp.o: source/textconsole.cpp \
- source/textconsole.h \
+build/A-Pix/source/effects.cpp.o: source/effects.cpp source/effects.h \
+ source/formatsglobals.h \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds.h \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/bios.h \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/ndstypes.h \
@@ -63,12 +63,9 @@ build/A-Pix/source/textconsole.cpp.o: source/textconsole.cpp \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/teak/dsp.h \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/teak/fifo.h \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/teak/tlf.h \
- source/files.h source/formats.h source/acs.h source/formatsglobals.h \
- source/png/lodepng.h \
- C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/fat.h \
- source/effects.h build/A-Pix/graphics/GFXnewImageInput.h \
- build/A-Pix/graphics/GFXconsoleInput.h
-source/textconsole.h:
+ source/avdslib.h
+source/effects.h:
+source/formatsglobals.h:
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds.h:
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/bios.h:
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/ndstypes.h:
@@ -132,12 +129,4 @@ C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/pe
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/teak/dsp.h:
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/teak/fifo.h:
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/teak/tlf.h:
-source/files.h:
-source/formats.h:
-source/acs.h:
-source/formatsglobals.h:
-source/png/lodepng.h:
-C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/fat.h:
-source/effects.h:
-build/A-Pix/graphics/GFXnewImageInput.h:
-build/A-Pix/graphics/GFXconsoleInput.h:
+source/avdslib.h:

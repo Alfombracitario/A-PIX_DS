@@ -27,5 +27,7 @@ void AVdrawVline(u16* arr, int y0, int y1, int x, u16 color);
 void AVdrawHline(u16* arr, int x0, int x1, int y, u16 color);
 void AVdrawHlineDMA(u16* arr, int x0, int x1, int y, u16 color);
 
-//planeo crear la función para cargar .acs y guardarlo
+u32 AVRGBTOHSV(u8 r, u8 g, u8 b);
+u16 AVHSVTORGB(u8 h, u8 s, u8 v);
+
 #endif // AVDSLIB_H

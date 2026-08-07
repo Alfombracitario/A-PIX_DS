@@ -1,6 +1,8 @@
 #ifndef FORMATSGLOBALS_H
 #define FORMATSGLOBALS_H
 
+#include "nds.h"
+
 #define SURFACE_W 128
 #define SURFACE_H 128
 #define surfaceSize 128*128

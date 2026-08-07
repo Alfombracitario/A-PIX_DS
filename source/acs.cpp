@@ -1,21 +1,5 @@
 #include "acs.h"
 
-static const u8 log2Lut[129] = {
-//  0     1     2     3     4     5     6     7     8     9
-    0xFF, 0,    1,    1,    2,    2,    2,    2,    3,    3,  // 0-9
-    3,    3,    3,    3,    3,    3,    4,    4,    4,    4,  // 10-19
-    4,    4,    4,    4,    4,    4,    4,    4,    4,    4,  // 20-29
-    4,    4,    5,    5,    5,    5,    5,    5,    5,    5,  // 30-39
-    5,    5,    5,    5,    5,    5,    5,    5,    5,    5,  // 40-49
-    5,    5,    5,    5,    5,    5,    5,    5,    5,    5,  // 50-59
-    5,    5,    5,    5,    6,    6,    6,    6,    6,    6,  // 60-69
-    6,    6,    6,    6,    6,    6,    6,    6,    6,    6,  // 70-79
-    6,    6,    6,    6,    6,    6,    6,    6,    6,    6,  // 80-89
-    6,    6,    6,    6,    6,    6,    6,    6,    6,    6,  // 90-99
-    6,    6,    6,    6,    6,    6,    6,    6,    6,    6,  // 100-109
-    6,    6,    6,    6,    6,    6,    6,    6,    6,    6,  // 110-119
-    6,    6,    6,    6,    6,    6,    6,    6,    7,        // 120-128
-};
 //This is the reader of ACS for A-pix DS, this was optimized to work better on this app using shortcuts.
 #define ACScolModeARGB1555   0
 #define ACScolModeARGB8888   1
@@ -23,6 +7,9 @@ static const u8 log2Lut[129] = {
 #define ACScolModeGrayScale8 3
 #define ACScolModeGrayScale4 4
 #define ACStotalModes 5
+
+#define ACStypeusesPalette    1
+#define ACStypeIsAnimated    (1<<1)//para algún futuro
 
 #define ACSmirror 01
 #define ACSpattern 00
@@ -32,6 +19,17 @@ static const u8 log2Lut[129] = {
 // ============================================================================
 //                      Funciones auxiliares
 // ============================================================================
+
+
+static inline uint32_t log2(uint32_t x) {
+    uint32_t r = 0;
+    if (x >= 0x10000) { x >>= 16; r += 16; }
+    if (x >= 0x100)   { x >>= 8;  r += 8;  }
+    if (x >= 0x10)    { x >>= 4;  r += 4;  }
+    if (x >= 0x4)     { x >>= 2;  r += 2;  }
+    if (x >= 0x2)     {           r += 1;  }
+    return r;
+}
 
 static inline uint32_t fastHash(const uint16_t* p, int len){
     uint32_t h = 2166136261u;
@@ -134,6 +132,7 @@ inline void readCommand8(u8 byte, int* pInd, u16* surface){
         break;}
     }
 }
+
 void importACS(const char* path, u16* surface, u16* pal){
 
     //usamos backup para leer el archivo en RAM
@@ -152,7 +151,7 @@ void importACS(const char* path, u16* surface, u16* pal){
     fclose(f);
 
     // ---------- byte 0: version y otros datos ----------
-    if(data[0] != 1) return;//hardcodeado por ahora
+    bool usePalette = (data[0] & ACStypeusesPalette);
 
     memset(surface, 0, 32768);
 
@@ -172,8 +171,8 @@ void importACS(const char* path, u16* surface, u16* pal){
 
     if(resX > 128 || resY > 128) return;
 
-    surfaceXres = log2Lut[resX];
-    surfaceYres = log2Lut[resY];
+    surfaceXres = log2(resX);
+    surfaceYres = log2(resY);
 
     u32 imgRes = (u32)resX * (u32)resY;
 
@@ -185,12 +184,20 @@ void importACS(const char* path, u16* surface, u16* pal){
     if(colorMode > ACStotalModes) return;
 
     // ---------- colorCount ----------
-    int colorCount = data[ind++];
-
+    int colorCount;
+    if(usePalette){
+        colorCount = data[ind++];
+    }else{
+        if(paletteBpp == 16){
+            return; //you can't have direct color mode without colors.
+        }
+        colorCount = 1<<paletteBpp;
+    }
     //  MODO INDEXADO
     if(colorCount > 0){
 
         // --- leer paleta ---
+        if(usePalette){
         switch(colorMode){
 
             case ACScolModeARGB1555:
@@ -237,10 +244,10 @@ void importACS(const char* path, u16* surface, u16* pal){
                 }
             break;
         }
-
+        }
         // modo oculto solo-paleta
         if(resX == 0 || resY == 0) return;
-
+        
         // --- cabecera de control ---
         int ByteCtrlCount  = ((int)data[ind]<<8) | data[ind+1]; ind+=2;
         int CommandsCount  = ((int)data[ind]<<8) | data[ind+1]; ind+=2;

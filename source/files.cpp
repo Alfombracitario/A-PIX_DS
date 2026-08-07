@@ -24,7 +24,36 @@ char currentFilePath[257];
 int selector = 0;//selector para la consola
 int selectorA = 0;//selector secundario
 
+inline bool fileExists(const char* path) {
+    FILE* f = fopen(path, "rb");
+    if (f) {
+        fclose(f);
+        return true;
+    }
+    return false;
+}
+
 void saveFile(int format, char* path, u16* palette, u16* surface){
+    if(fileExists(path)){
+        consoleClear();
+        printf("\n\n\n\n[WARNING]\n????????????????????????????????");
+        printf(path);
+        printf("\n\nThis file already exists!\n????????????????????????????????\n\n\n\n\n\n\n[A/Start] overwrite\n[B/Select] Cancel");
+        while(1){
+            scanKeys();
+            kDown = keysDown();
+
+            if(kDown & KEY_A || kDown & KEY_START){
+                consoleClear();
+                break;
+            }
+            else if(kDown & KEY_B || kDown & KEY_SELECT){
+                consoleClear();
+                return;
+            }
+            swiWaitForVBlank();
+        }
+    }
     switch(format){
         default:
             return;
