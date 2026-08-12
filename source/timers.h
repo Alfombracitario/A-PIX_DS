@@ -5,7 +5,7 @@
 #include <time.h>
 #include "timers.h"
 
-#define DEBUG_CPU
+//#define DEBUG_CPU
 
 #ifdef DEBUG_CPU
 extern u32 timerAccum;
@@ -29,7 +29,7 @@ inline u32 getTimeTicks() {
 inline void timerContinue() { timerMark = getTimeTicks(); }
 inline void timerStop()     { timerAccum += getTimeTicks() - timerMark; }
 inline u32  timerRead()     { return timerAccum; }
-inline void timerReset()    { timerAccum = 0; }
+inline void timerReset()    { timerAccum = 0;}
 #else
 inline u32  getTimeTicks()  { return 0; }
 inline void timerContinue() {}

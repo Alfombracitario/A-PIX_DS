@@ -11,6 +11,8 @@ extern void copyFromSurfaceToStack();
 extern void pasteFromStackToSurface();
 extern u32 effectBackupPos;
 extern u32 kDown;
+extern u32 kUp;
+extern u16 stack[surfaceSize];
 
 EffectEntry effects[EFFECT_COUNT] = {
     { "Invert Colors"  ,    true,  0,   0,  0   },
@@ -25,27 +27,136 @@ EffectEntry effects[EFFECT_COUNT] = {
     { "Reduce colors"  ,    false, 2,   255,255 }
 };
 
+u16* orig;
+u16* pixels;
+int count;
+
+struct ColorEntry {
+    u16 rgb1555;
+    u32 frequency;
+    bool kept;
+};
+
+//helpers (itcm)
+__attribute__((section(".itcm"))) void indexedToDirect(){
+    paletteBpp = 16;
+    const u32 iterations = 1<<surfaceXres<<surfaceYres;
+    for(int i = 0; i < iterations; i++){
+        surface[i] = palette[surface[i]];
+    }
+}
+//test de ahora, luego veo de dónde saco toda esta memoria (usando backup)
+u16 temp[65536];
+static u8 remapTable[32768];  // Tabla de remapeo separada
+__attribute__((section(".itcm"))) void posterize(int numColors) {
+    dmaFillHalfWords(0, temp, 65536*2);
+
+    const int res = 1<<surfaceXres<<surfaceYres;
+    
+    // Contar frecuencias
+    for(int i = 0; i < res; i++){
+        temp[surface[i] & 0x7FFF]++;
+    }
+
+    // Recopilar colores únicos
+    u16* uniqueColors = (u16*)(temp + 32768);
+    int colorCount = 0;
+    for(int i = 0; i < 32768; i++){
+        if(temp[i] > 0){
+            uniqueColors[colorCount] = i;
+            colorCount++;
+        }
+    }
+
+    // Ordenar por frecuencia
+    for(int i = 0; i < colorCount - 1; i++){
+        for(int j = i + 1; j < colorCount; j++){
+            if(temp[uniqueColors[j]] > temp[uniqueColors[i]]){
+                u16 tempColor = uniqueColors[i];
+                uniqueColors[i] = uniqueColors[j];
+                uniqueColors[j] = tempColor;
+            }
+        }
+    }
+
+    // Seleccionar paleta
+    int paletteSize = (colorCount < numColors) ? colorCount : numColors;
+    for(int i = 0; i < paletteSize; i++){
+        palette[i] = uniqueColors[i] | 0x8000;
+    }
+    
+    for(int i = paletteSize; i < 256; i++){
+        palette[i] = 0x8000;
+    }
+
+    //incializamos el remapTable
+    for(int i = 0; i < 32768; i++) {
+        remapTable[i] = 0xFF;  // 0xFF = no asignado
+    }
+
+    // Asignar colores de la paleta
+    for(int i = 0; i < paletteSize; i++) {
+        remapTable[palette[i] & 0x7FFF] = i;
+    }
+
+    // ahora remapeamos los colores que no "clasificaron" a otro cercano en la paleta
+    for(int i = paletteSize; i < colorCount; i++) {
+        int color = uniqueColors[i];
+        int r1 = (color >> 10) & 0x1F;
+        int g1 = (color >> 5) & 0x1F;
+        int b1 = color & 0x1F;
+        
+        int bestIndex = 0;
+        int bestDistance = INT_MAX;
+        
+        for(int j = 0; j < paletteSize; j++) {
+            int palColor = palette[j] & 0x7FFF;
+            int r2 = (palColor >> 10) & 0x1F;
+            int g2 = (palColor >> 5) & 0x1F;
+            int b2 = palColor & 0x1F;
+            
+            int dr = r1 - r2;
+            int dg = g1 - g2;
+            int db = b1 - b2;
+            int distance = dr*dr + dg*dg + db*db;
+            
+            if(distance < bestDistance) {
+                bestDistance = distance;
+                bestIndex = j;
+                if(distance == 0) break;
+            }
+        }
+        
+        remapTable[color] = bestIndex;
+    }
+
+    // Remapear imagen
+    for(int i = 0; i < res; i++){
+        int color = surface[i] & 0x7FFF;
+        if(remapTable[color] == 0xFF) {
+            remapTable[color] = 0; //fallback
+        }
+        surface[i] = remapTable[color];
+    }
+    paletteBpp = 8;
+}
 bool applyEffect(EffectId id)
 {
-    u16* orig;
-    u16* pixels;
-    int count;
-
-    if(paletteBpp < 16){
-        pixels = palette;
-        orig = backup + effectBackupPos + surfaceSize; // offset ya en u16, sin *2
-        count = 256;
-    } else {
+    if(paletteBpp == 16){
         pixels = surface;
-        orig = backup + effectBackupPos;
         count = surfaceSize;
     }
+    else{
+        count = 256;
+        pixels = palette;//destino
+    }
+    //sí, medio sucio pero esta parte está llena de placeholders lol
     int param = effects[id].paramValue;
 
     switch(id){
         case EFFECT_INVERT: {
             for(int i = 0; i < count; i++){
-                pixels[i] = AVinvertColor(orig[i]);
+                pixels[i] = ~orig[i] | 0x8000;
             }
             break;
         }
@@ -142,16 +253,19 @@ bool applyEffect(EffectId id)
             if(paletteBpp == 16){
                 break;
             }
-            paletteBpp = 16;
-            const u32 iterations = 1<<surfaceXres<<surfaceYres;
-            for(int i = 0; i < iterations; i++){
-                surface[i] = palette[surface[i]];
-            }
-
+            indexedToDirect();
+            break;
         }
 
         case EFFECT_POSTERIZE: {
-        
+            
+            if(paletteBpp < 16){
+                indexedToDirect();
+                pixels = surface;
+                orig = backup + effectBackupPos;
+                count = surfaceSize;
+            }
+            posterize(param);
             break;
         }
         default:

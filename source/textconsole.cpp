@@ -293,10 +293,10 @@ static void drawEffectEdit(){
 }
 
 static bool handleSettings(){
+    static bool redraw = true;
     switch(settingsState){
-
+        
         case SETTINGS_LIST: {
-            bool redraw = false;
 
             if(kDown & KEY_UP){
                 settingsSelector = (settingsSelector - 1 + EFFECT_COUNT) % EFFECT_COUNT;
@@ -313,15 +313,13 @@ static bool handleSettings(){
                 } else {
                     settingsState = SETTINGS_EDIT;
                 }
-                redraw = true;
-            }
-            if(kDown & KEY_B){
-                return true; // cancelar
+                redraw = false;
             }
 
             if(redraw){
                 if(settingsState == SETTINGS_LIST) drawEffectsList();
                 else drawEffectEdit();
+                redraw = false;
             }
             break;
         }

@@ -177,7 +177,11 @@ void previewFile(int format, const char* filename){
     DC_FlushRange(stack, (1 << surfaceXres) * (1 << surfaceYres) * sizeof(u16));
     DC_FlushRange(pal, 256 * sizeof(u16));
 
-    int maxExp = surfaceXres > surfaceYres ? surfaceXres : surfaceYres;
+    int maxExp = surfaceYres > surfaceXres ? surfaceYres : surfaceXres;
+    //edge case super extraño que inventé porque tengo tocs raros
+    if((surfaceYres-surfaceXres) == -1){
+        maxExp--;
+    }
     bgSetScale(bgPreview, 296 >> (7 - maxExp), 296 >> (7 - maxExp));
     bgUpdate();
 

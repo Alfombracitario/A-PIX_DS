@@ -19,6 +19,7 @@
     swap de pantallas
     selector desde pantalla de arriba
 */
+
 #include <nds.h>
 #include <stdio.h>
 #include <sys/stat.h>
@@ -136,6 +137,7 @@ int bucketMode;
 bool hasClipboard = false;
 bool nesMode = false;
 bool usesPages = false;
+bool moveCanvas = false;
 u8 __attribute__((section(".dtcm"))) palEdit[3];
 
 const u16 nesPalette[64] = {
@@ -198,7 +200,6 @@ int fileOffset = 0;
 int gridSkips = 0;
 int prevZoom = subSurfaceZoom;
 bool rPressed = false;
-bool screensSwapped = false;
 bool showBrushSettings = false;
 bool preview = true;
 bool redraw = true;
@@ -1274,6 +1275,8 @@ void textMode()
     oamClear(&oamSub, 0, 128);
     oamUpdate(&oamSub);
 }
+extern u16* orig;
+extern int count;
 void settingsMode(){
     
     backupWrite();
@@ -1293,18 +1296,32 @@ void settingsMode(){
     currentSubMode = SUB_TEXT;
     currentConsoleMode = MODE_SETTINGS;
 
-    runTextConsole();
-    //copiamos datos en caso de que el usuario cancele la operación
-    const u32 PALETTE_SIZE_U16 = 256; // 256 colores u16 = tamaño fijo de paleta
+    
+    // Definir claramente las unidades
+    const u32 PALETTE_SIZE_BYTES = 256 * sizeof(u16);
+    const u32 BACKUP_SIZE_U16 = BACKUP_SIZE / sizeof(u16); // Si BACKUP_SIZE está en bytes
 
-    effectBackupPos = (backupIndex+1)*backupSize;
+    // Calcular posición de backup
+    effectBackupPos = ((backupIndex + 1) * backupSize) / sizeof(u16);
 
-    if(effectBackupPos + surfaceSize + PALETTE_SIZE_U16 > BACKUP_SIZE){ // BACKUP_SIZE en u16 también
+    // Verificar espacio suficiente (todo en unidades de u16)
+    if(effectBackupPos + surfaceSize + PALETTE_SIZE_BYTES > BACKUP_SIZE_U16){
         effectBackupPos = 0;
     }
 
-    dmaCopy(surface, backup+effectBackupPos,surfaceSize*sizeof(u16));
-    dmaCopy(palette, backup+effectBackupPos+surfaceSize, PALETTE_SIZE_U16*sizeof(u16));
+    orig = backup + effectBackupPos;
+
+    // Leer datos
+    if(paletteBpp < 16){//indexiado
+        for(int i = 0; i < 256; i++){
+            orig[i] = palette[i];
+        }
+    } else {
+        dmaCopy(surface, backup + effectBackupPos, surfaceSize * sizeof(u16));
+    }
+
+    
+    runTextConsole();
 }
 
 int bgPreview;
@@ -1395,9 +1412,7 @@ void drawInfo()
 #ifdef DEBUG_CPU
     u32 ticks = frameEndTime - frameStartTime;
     u32 cpuUsage = ((u64)(ticks) * 11732) >> 16;
-    u32 value = getBatteryLevel();
-    u32 battery_level = value & 0xF;
-    printf("\n%d\n%lu\n%d", fps, cpuUsage,battery_level);
+    printf("\n%d", cpuUsage);
 #endif
 }
 //============================================================= SD CARD ===============================================|
@@ -1517,6 +1532,7 @@ void applyActions(int actions)
         if (actions & ACTION_RIGHT)
             subSurfaceXoffset++;
 
+        if(moveCanvas == false){
         if (actions & ACTION_ZOOM_IN)
         {
             subSurfaceZoom++;
@@ -1526,6 +1542,7 @@ void applyActions(int actions)
         {
             subSurfaceZoom--;
             updatePreviewGfx();
+        }
         }
     }
     drawSurfaceBottom();
@@ -2228,8 +2245,6 @@ __attribute__((section(".itcm"))) int main(void)
         if(kHeld | KEY_TOUCH){
             touchRead(&touch);
         }
-        
-        // if(screensSwapped == false){
         if (kUp & KEY_TOUCH)
         { // permitir volver a dibujar en un pixel
             prevx = -1;
@@ -2707,7 +2722,6 @@ __attribute__((section(".itcm"))) int main(void)
         {
             stylusPressed = false;
         }
-
     frameEnd:
         //actualizamos el coso del preview
         if(previewPosAlpha > 0){
@@ -2736,10 +2750,6 @@ __attribute__((section(".itcm"))) int main(void)
         updated = false;
         accurate = false;
         // fin del loop de modo bitmap (pantalla de abajo)
-        //}
-        // else{
-        //  screenSwapped
-        //}
     }
     /*
     Esta sección está hecha para quienes leyeron el código!

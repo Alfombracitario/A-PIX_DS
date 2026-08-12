@@ -15,8 +15,8 @@ LIBDIRS     := $(BLOCKSDS)/libs/maxmod
 NAME            := A-Pix
 GAME_TITLE      := A-Pix DS
 GAME_SUBTITLE   := @Alfombracitario
-GAME_AUTHOR     := Pre release 0.4.3
-GAME_ICON       := icon.bmp
+GAME_AUTHOR     := Pre release 0.5
+GAME_ICON 		:= icon.gif
 
 # -------------------------------------------------
 # Carpetas del proyecto
@@ -25,14 +25,6 @@ SOURCEDIRS      := source
 INCLUDEDIRS     := include
 GFXDIRS         := graphics
 AUDIODIRS       := audio
-
-# -------------------------------------------------
-# Opciones extra
-# -------------------------------------------------
-CFLAGS          += -O3 -Wall
-CXXFLAGS        += -O3 -Wall
-DEFINES         += -DARM9
-
 # -------------------------------------------------
 # Makefile base BlocksDS
 # -------------------------------------------------
