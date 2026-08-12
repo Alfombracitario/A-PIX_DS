@@ -32,6 +32,9 @@ If you want to run this app I recommend you to use TwilightMenu++ or unlaunch.
 - Color bucket — replace a palette index, an entire color across the image or just a zone
 - File browser with preview and smooth scrolling
 - Animation support
+- A lot of image effects
+- Crop and expand images
+- Color reduction to N colors
 - A few easter eggs hidden somewhere in the app
 
 ---
@@ -113,8 +116,8 @@ Each frame must currently be exported individually — `.gif` export is not yet 
 
 ## Current Limitations
 
-- Maximum image size: **128×128 pixels**
-- you can use Redo 8 times (soon up to 80 times!)
+- Maximum image size: **128×128 pixels** (I plan to expand it)
+- you can use Redo 80 times!
 ---
 
 <img width="256" height="384" alt="githubiconapixds" src="https://github.com/user-attachments/assets/7670c65a-591c-4be7-95f6-85ec90b98b3d" />
