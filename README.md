@@ -110,7 +110,7 @@ A-Pix DS includes basic animation support: add frames, delete frames and change 
 
 the app now is stable but pretty limited in this aspect.
 
-Each frame must currently be exported individually — `.gif` export is not yet available.  
+Each frame must currently be exported individually,`.gif` export is not yet available.  
 
 ---
 
