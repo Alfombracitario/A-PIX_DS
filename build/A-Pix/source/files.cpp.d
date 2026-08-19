@@ -64,7 +64,8 @@ build/A-Pix/source/files.cpp.o: source/files.cpp source/files.h \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/teak/tlf.h \
  source/formats.h source/acs.h source/formatsglobals.h \
  source/png/lodepng.h \
- C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/fat.h
+ C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/fat.h \
+ source/textconsole.h
 source/files.h:
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds.h:
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/bios.h:
@@ -134,3 +135,4 @@ source/acs.h:
 source/formatsglobals.h:
 source/png/lodepng.h:
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/fat.h:
+source/textconsole.h:

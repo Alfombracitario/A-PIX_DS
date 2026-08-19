@@ -43,52 +43,52 @@ int png_import(const char *path, u16 *surf, u16 *pal);
 int png_export(const char *path, const u16 *surf, const u16 *pal);
 
 //macros
-#define formatDirectBMP 0
-#define format8bppBMP   1
-#define format4bppBMP   2
-#define formatNES       3
-#define formatGBC       4
-#define formatSNES4     5
-#define formatGBA4      6
-#define formatPCX       7
-#define formatPAL       8
+#define formatACS       0
+#define formatPNG       1
+#define formatPCX       2
+#define formatDirectBMP 3
+#define format8bppBMP   4
+#define format4bppBMP   5
+#define formatNES       6
+#define formatGBC       7
+#define formatSNES4     8
 #define formatSNES8     9
-#define formatPal1555   10
-#define formatACS       11
-#define formatPNG       12
+#define formatGBA4      10
+#define formatPAL       11
+#define formatPal1555   12
 #define formatGIF       13
 
 #define MaxFormats 13
 
 const char texts[MaxFormats][24] = {
-    ".bmp [direct]",
-    ".bmp [8bpp]",
-    ".bmp [4bpp]",
-    ".bin [NES]",
-    ".bin [GB 2bpp]",
-    ".bin [SNES 4bpp]",
-    ".bin [GBA 4bpp]",
+    ".acs",
+    ".png",
     ".pcx",
-    ".pal [YY-CHR]",
-    ".bin [SNES 8bpp]",
-    ".pal [ARGB 1555]",
-    ".acs [Custom format]",
-    ".png"
+    ".bmp[direct]",
+    ".bmp[8bpp]",
+    ".bmp[4bpp]",
+    ".bin[NES]",
+    ".bin[GB]",
+    ".bin[SNES 4bpp]",
+    ".bin[SNES 8bpp]",
+    ".bin[GBA 4bpp]",
+    ".pal[YY-CHR]",
+    ".pal[1555]"
 };
 const char formats[MaxFormats][6] = {
-    ".bmp",
-    ".bmp",
-    ".bmp",
-    ".bin",
-    ".bin",
-    ".bin",
-    ".bin",
-    ".pcx",
-    ".pal",
-    ".gif",
-    ".pal",
     ".acs",
-    ".png"
+    ".png",
+    ".pcx",
+    ".bmp",
+    ".bmp",
+    ".bmp",
+    ".bin",
+    ".bin",
+    ".bin",
+    ".bin",
+    ".bin",
+    ".pal",
+    ".pal"
 };
 
 #endif // FORMATS_H

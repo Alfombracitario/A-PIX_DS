@@ -1,5 +1,5 @@
 #include "files.h"
-
+#include "textconsole.h"
 extern bool usesPages;
 extern int paletteBpp;
 extern bool nesMode;
@@ -18,7 +18,7 @@ struct dirent entryList[MAX_FILES];
 int fileCount = 0;
 u8 sortedIdx[MAX_FILES];
 char path[257] = "/";
-char format[6];
+char format[5];
 char currentFilePath[257];
 
 int selector = 0;//selector para la consola
@@ -34,7 +34,7 @@ inline bool fileExists(const char* path) {
 }
 
 void saveFile(int format, char* path, u16* palette, u16* surface){
-    if(fileExists(path)){
+    if(fileExists(path) && currentSubMode == SUB_TEXT){
         consoleClear();
         printf("\n\n\n\n[WARNING]\n????????????????????????????????");
         printf(path);
@@ -161,6 +161,9 @@ void loadFile(int format, char* path, u16* palette, u16* surface){
 }
 
 void previewFile(int format, const char* filename){
+    if(kDown & KEY_TOUCH){
+        return;
+    }
     int preBpp         = paletteBpp;
     int preSurfaceYres = surfaceYres;
     int preSurfaceXres = surfaceXres;

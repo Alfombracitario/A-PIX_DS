@@ -12,6 +12,7 @@
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 
 // Variables internas del selector de archivos (definidas en files.cpp)
+extern void submitVRAM(bool _accurate);
 extern int selector;
 extern int selectorA;
 extern int fileCount;
@@ -25,6 +26,7 @@ bool updateSettings;//para settings
 //input
 const char *keyboardLower = "1234567890()#@qwertyuiop[]$^asdfghjkl/{}%!|zxcvbnm>>-_~=<<      ,.'`;+";
 const char *keyboardUpper = "1234567890()#@QWERTYUIOP[]$^ASDFGHJKL/{}%!|ZXCVBNM>>-_~=<<      ,.'`;+";
+
 char getKeyboardKey(int x, int y){
     //primero arreglamos las teclas a un margen
     x=(x>>4)-1;//dividir en 16
@@ -52,7 +54,6 @@ void handleKey(char key) {
             break;
 
         case '>': // enter
-            fname[0] = '\0';
             kDown = KEY_START;
             break;
 
@@ -365,6 +366,9 @@ static bool handleSettings(){
 
 bool runTextConsole()
 {
+    //preparar para cuando salgamos
+    updated = true;
+    accurate = true;
     // limpiar input residual del frame que nos llamó
     scanKeys();
     kDown = 0;
@@ -381,28 +385,29 @@ bool runTextConsole()
         touchRead(&touch);
         holdTimer = kHeld ? holdTimer + 1 : 0;
 
+        if (currentConsoleMode == MODE_NEWIMAGE)
+        {
+            if (handleNewImage()) { currentConsoleMode = MODE_NO; break; }
+        }
+        else if (currentConsoleMode == SAVE_file)
+        {
+            if (handleFileConsole()) { currentConsoleMode = MODE_NO; break; }
+        }
+        else if (currentConsoleMode == LOAD_file)
+        {
+            if (handleFileConsole()) { currentConsoleMode = MODE_NO; break; }
+        }
+        else if (currentConsoleMode == MODE_SETTINGS){
+            if (handleSettings()) { currentConsoleMode = MODE_NO; break; }
+        }
+
         if (kDown & KEY_SELECT)
         {
             bitmapMode();
             currentConsoleMode = MODE_NO; // o el valor neutro que tengas
             currentSubMode = SUB_BITMAP;
-            return false;
-        }
-
-        if (currentConsoleMode == MODE_NEWIMAGE)
-        {
-            if (handleNewImage()) { currentConsoleMode = MODE_NO; return true; }
-        }
-        else if (currentConsoleMode == SAVE_file)
-        {
-            if (handleFileConsole()) { currentConsoleMode = MODE_NO; return true; }
-        }
-        else if (currentConsoleMode == LOAD_file)
-        {
-            if (handleFileConsole()) { currentConsoleMode = MODE_NO; return true; }
-        }
-        else if (currentConsoleMode == MODE_SETTINGS){
-            if (handleSettings()) { currentConsoleMode = MODE_NO; return true; }
+            break;
         }
     }
+    return false;
 }

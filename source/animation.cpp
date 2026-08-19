@@ -12,17 +12,28 @@ extern void drawSurfaceMain();
 extern int  updatePal(int increment, int *palettePos);
 extern void drawColorPalette();
 
+extern u16 onionSkin;
 extern int paletteBpp;
 extern int palettePos;
+extern u16 pixelsTop;
 extern u16 *pixelsTopVRAM;
 extern u16 *pixelsVRAM;
 extern bool accurate;
 extern u32 frameStartTime;
 extern u32 frameEndTime;
-
+extern bool onionSkinEnable;
 Animation animation;
 
 void loadAnimFrame(u16 *surface){
+
+    if (!animation.isPlaying && onionSkinEnable == true) {
+        u16 *dst = &onionSkin;
+        u16 *src = &pixelsTop;
+
+        memcpy(dst, src, 128*128*2);  // destino, origen, tamaño
+    }
+    
+
     FILE *f = fopen(ANIM_TEMP, "rb");
     if (!f)
         return;

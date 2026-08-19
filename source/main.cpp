@@ -13,11 +13,6 @@
 
     select tool
     move
-
-    añadir gradientes (16bpp)
-
-    swap de pantallas
-    selector desde pantalla de arriba
 */
 
 #include <nds.h>
@@ -94,10 +89,11 @@ u16 surface[surfaceSize];//lienzo principal, si pudiera lo metería a dtcm
 u16 *pixelsTopVRAM = (u16 *)BG_GFX;
 u16 *pixelsVRAM = (u16 *)BG_GFX_SUB;
 u16 *bgPreviewGfx = NULL;
-u16 pixelsTop[surfaceSize];                         // copia en RAM (es más rápida)
+u16 pixelsTop[surfaceSize];// surface procesado en RAM.
 u16 __attribute__((section(".dtcm"))) palette[256]; // ram rápida sin cache miss, perfecto para acceso aleatorio de paletas
 
 u16 stack[surfaceSize]; // para operaciones temporales
+u16 onionSkin[surfaceSize]; // el nombre lo dice
 u16 backup[BACKUP_SIZE];     // para undo/redo y cargar imagenes 256kb
 
 u16 gradientTable[SCREEN_H];
@@ -134,10 +130,12 @@ int __attribute__((section(".dtcm"))) paletteBpp = 8;
 
 int __attribute__((section(".dtcm"))) paletteOffset = 0;
 int bucketMode;
+bool onionSkinEnable = false;
 bool hasClipboard = false;
 bool nesMode = false;
 bool usesPages = false;
 bool moveCanvas = false;
+
 u8 __attribute__((section(".dtcm"))) palEdit[3];
 
 const u16 nesPalette[64] = {
@@ -267,9 +265,45 @@ ConsoleFont font = {
     .numChars = fontTilesLen >> 5,
 };
 
+
+// Versión con ponderación 30/70 (aproximación con shift)
+inline u16 mergeColor(u16 o, u16 n) {
+    u8 r0 = (o >> 10) & 31;
+    u8 g0 = (o >> 5) & 31;
+    u8 b0 = o & 31;
+    u8 r1 = (n >> 10) & 31;
+    u8 g1 = (n >> 5) & 31;
+    u8 b1 = n & 31;
+    
+    return (((u16)((r0 + (r1 << 1) + r1 + 2) >> 2) << 10) |
+            ((u16)((g0 + (g1 << 1) + g1 + 2) >> 2) << 5) |
+            ((b0 + (b1 << 1) + b1 + 2) >> 2) |
+            0x8000);
+}
+
+void applyOnionSkin(){
+    int xres = 1<<surfaceXres;
+    int yres = 1<<surfaceYres;
+    int i = 0;
+    for(int y = 0; y < yres; y++){
+        i = y<<7;//tamaño de la surface
+        for(int x = 0; x < xres; x++){
+            if(onionSkin[i] != palette[0]){
+                pixelsTop[i] = mergeColor(onionSkin[i],pixelsTop[i]);
+            }
+            i++;
+        }
+    }
+}
 // FUNCIONES
 void submitVRAM(bool _accurate = false)
 {
+    //PLACEHOLDER!
+    //luego lo optimizaré más lol
+    if(onionSkinEnable == true){
+        applyOnionSkin();
+    }
+
     const u32 sizeTop = surfaceSize << 1;
 
     if (paletteBpp != 16)
@@ -686,7 +720,7 @@ __attribute__((section(".itcm"))) void drawSurfaceMain()
         const u16 *src = surface;
         if (xres == 128)
         {
-            dmaCopy(src, dst, 128 * yres * 2);
+            memcpy(dst,src, 128 * yres * 2);//más lento que DMA, pero no hay problemas de Cache
             return;
         }
         for (int i = 0; i < yres; i++, dst += 128, src += xres)
@@ -719,6 +753,7 @@ __attribute__((section(".itcm"))) void drawSurfaceMain()
             dst[j] = pal[row[j]];
     }
 }
+
 void drawSurfaceBottom()
 { // esta funcion ahora se encarga de limitar y actualizar ciertos datos.
     int visibleX = 128 >> subSurfaceZoom;
@@ -871,7 +906,7 @@ void updatePal(int increment, int *palettePos)
     for (int i = 0; i < 3; i++)
         palEdit[i] = _barColAmount[i];
 
-    if (nesMode == false)
+    if(!nesMode)
     {
         // rectangulos de abajo
         u16 _barCol[3] = {C_RED, C_GREEN, C_BLUE};
@@ -1009,6 +1044,33 @@ void setBrushSettingsSprites(bool on)
            false, false, false, false, false);
     oamUpdate(&oamSub);
 }
+void setOamBG()
+{
+    u16 *gfxBG = oamAllocateGfx(&oamSub, SpriteSize_32x32, SpriteColorFormat_Bmp);
+    const u16 bgCol[2] = {0xA908, 0xA082};
+
+    for(int y = 0; y < 32; y++){
+        for(int x = 0; x < 32; x++){
+            gfxBG[(y<<5) + x] = bgCol[(x + y) & 1];
+        }
+    }
+    
+    for (int i = 0; i < 16; i++)
+    {
+        int x = ((i & 0b11) << 5) + SURFACE_X;
+        int y = (i & 0b1100) << 3;
+
+        oamSet(&oamSub, i + 4, // index
+               x, y,           // posición
+               3,
+               15, // opaco
+               SpriteSize_32x32, SpriteColorFormat_Bmp,
+               gfxBG,
+               1,
+               false, false, false, false, false);
+    }
+}
+
 
 void setEditorSprites()
 {
@@ -1159,30 +1221,11 @@ void setEditorSprites()
         gfxGrid,
         -1,
         false, false, false, false, false);
+    
+    setOamBG();
     setBrushSettingsSprites(true);
     updatePreviewPos();
     updatePreviewGfx();
-}
-
-void setOamBG()
-{
-    u16 *gfxBG = oamAllocateGfx(&oamSub, SpriteSize_32x32, SpriteColorFormat_Bmp);
-    decompress(GFXbackgroundBitmap, gfxBG, LZ77Vram);
-    
-    for (int i = 0; i < 16; i++)
-    {
-        int x = ((i & 0b11) << 5) + SURFACE_X;
-        int y = (i & 0b1100) << 3;
-
-        oamSet(&oamSub, i + 4, // index
-               x, y,           // posición
-               1,
-               15, // opaco
-               SpriteSize_32x32, SpriteColorFormat_Bmp,
-               gfxBG,
-               1,
-               false, false, false, false, false);
-    }
 }
 
 void initBitmap()
@@ -1205,6 +1248,7 @@ void initBitmap()
     bgCanvas = bgInitSub(3, BgType_Bmp16, BgSize_B16_128x128, 4, 0);
     bgUI = bgInitSub(2, BgType_Bmp8, BgSize_B8_256x256, 0, 0);
 
+
     pixelsVRAM = (u16 *)bgGetGfxPtr(bgCanvas);
 
     decompress(GFXinputBitmap, bgGetGfxPtr(bgUI), LZ77Vram);
@@ -1217,7 +1261,7 @@ void initBitmap()
     submitVRAM();
 
     // Prioridades: UI detrás del canvas
-    bgSetPriority(bgCanvas, 3); // canvas prioridad mínima
+    bgSetPriority(bgCanvas, 0); // canvas prioridad mínima
     bgSetPriority(bgUI, 0);
     bgSetScale(3, 256, 256);
     //calcular offsets
@@ -1319,8 +1363,6 @@ void settingsMode(){
     } else {
         dmaCopy(surface, backup + effectBackupPos, surfaceSize * sizeof(u16));
     }
-
-    
     runTextConsole();
 }
 
@@ -1378,10 +1420,9 @@ void bitmapMode()
 
     setEditorSprites();
     paletteAlpha = MAX_ALPHA;
+    drawSurfaceMain();
     submitVRAM(true); // recuperamos nuestros queridos datos
 
-    //ahora siempre activo
-    setOamBG();
     bgSetScale(bgCanvas, 256, 256);
     bgSetScroll(bgCanvas, -64, -32);
 
@@ -1389,6 +1430,7 @@ void bitmapMode()
     previewYoffset = (SCREEN_H-(1<<surfaceYres))>>1;
     bgSetScale(bgMain, 256, 256);
     bgSetScroll(bgMain, -previewXoffset, -previewYoffset);
+    
     drawSurfaceBottom();
     oamUpdate(&oamSub);
     drawColorPalette();
@@ -1398,22 +1440,20 @@ char bucketText[2][6] = {"Color", "Index"};
 void drawInfo()
 {
     consoleClear();
-
-    if (animation.frames != 0)
-        printf("frame: %d / %d \nanim speed: %d", animation.pos, animation.frames, animation.speed);
-    else
-        printf("\n\n");
-
-    if (bucketMode != 0)
-        printf("\nBucket: replace %s", bucketText[bucketMode - 1]);
-    else
-        printf("\n");
-
 #ifdef DEBUG_CPU
     u32 ticks = frameEndTime - frameStartTime;
     u32 cpuUsage = ((u64)(ticks) * 11732) >> 16;
-    printf("\n%d", cpuUsage);
+    printf("%d", cpuUsage);
 #endif
+    if (animation.frames != 0)
+        printf("\nframe: %d / %d \nanim speed: %d", animation.pos, animation.frames, animation.speed);
+
+    if (bucketMode != 0)
+        printf("\nBucket: replace %s", bucketText[bucketMode - 1]);
+
+    if (onionSkinEnable)
+        printf("\nOnion skin enabled");
+
 }
 //============================================================= SD CARD ===============================================|
 void createAppFolder()
@@ -1488,6 +1528,13 @@ int getActionsFromTouch(int button)
             dmaFillHalfWords(0, gfxGrid, 64 * 64 * 2);
         break;
     case 7:
+        if(animation.frames > 0)
+        {
+            onionSkinEnable = !onionSkinEnable;
+            drawSurfaceMain();
+        }else{
+            onionSkinEnable = false;
+        }
         break;
     }
 
@@ -1823,6 +1870,7 @@ void pasteFromStackToSurface()
         }
     }
     accurate = true;
+    updated = true;
 }
 
 // para paletas
@@ -2642,12 +2690,26 @@ __attribute__((section(".itcm"))) int main(void)
                     stylusPressed = true;
                     goto frameEnd;
                 }
-                else if (touch.py < 40 && touch.py > 32 && paletteBpp == 16)
+                else if (touch.py < 40 && touch.py > 32)
                 { // transparencia
-                    paletteAlpha = (touch.px - 192);
-
-                    drawSliderRect(gfxRGBsliders, 0, 0, MAX_ALPHA, palette[palettePos]);
-                    drawSliderRect(gfxRGBsliders, paletteAlpha, 0, 64 - paletteAlpha, 0);
+                    if(paletteBpp == 16){
+                        paletteAlpha = (touch.px - 192);
+                        drawSliderRect(gfxRGBsliders, 0, 0, MAX_ALPHA, palette[palettePos]);
+                        drawSliderRect(gfxRGBsliders, paletteAlpha, 0, 64 - paletteAlpha, 0);
+                    }else{
+                        if(kDown & KEY_TOUCH){
+                            if(palette[palettePos] & 0x8000){
+                                palette[palettePos] &= 0x7FFF;
+                            }
+                            else{
+                                palette[palettePos] |= 0x8000;
+                            }
+                            drawSliderRect(gfxRGBsliders, 0, 0, MAX_ALPHA,palette[palettePos]);
+                            drawSurfaceMain();
+                            accurate = updated = true;
+                        }
+                    }
+                    
                     goto frameEnd;
                 }
                 else if (touch.py >= 40 && touch.py < 64) // creador de colores

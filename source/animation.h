@@ -17,8 +17,8 @@ void playAnimation();
 
 struct Animation
 {
-    u16 frames : 15 = 0;
-    u16 isPlaying : 1 = 0;
+    u16 frames : 15;
+    u16 isPlaying : 1;
     u16 pos = 0;
     u8 speed = 2; // en frames
 };

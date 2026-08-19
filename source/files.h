@@ -18,9 +18,9 @@ extern int fileCount;
 extern u8 sortedIdx[MAX_FILES];
 
 extern char path[257];
-extern char currentFilePath[257];  // faltaba
-extern char format[6];             // faltaba
-extern u16* bgPreviewGfx;          // faltaba
+extern char currentFilePath[257];
+extern char format[5];
+extern u16* bgPreviewGfx;
 
 extern int selector;
 extern int selectorA;
