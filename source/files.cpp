@@ -94,6 +94,12 @@ void saveFile(int format, char* path, u16* palette, u16* surface){
         case formatACS:
             exportACS(path, surface, palette);
         break;
+        case formatACSpal:
+            exportACSpal(path, palette);
+        break;
+        case formatACSnopal:
+            exportACSnoPal(path, surface);
+        break;
         case formatPNG:
             png_export(path, surface, palette);
         break;
@@ -169,7 +175,7 @@ void previewFile(int format, const char* filename){
     int preSurfaceXres = surfaceXres;
 
     // lanzar DMA fill en paralelo mientras la CPU prepara el path y carga el archivo
-    dmaFillHalfWords(0, bgPreviewGfx, 128 * 128 * 2);
+    dmaFillWords(0, bgPreviewGfx, 128 * 128 * 2);
 
     char fullPath[257];
     u16 pal[256];

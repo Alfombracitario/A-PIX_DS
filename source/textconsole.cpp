@@ -155,8 +155,10 @@ static bool handleNewImage()
 // Retorna true si debe saltar a frameEnd
 static bool handleFileConsole()
 {
+    u8 formatsCount;
     if (currentConsoleMode == SAVE_file)
     {
+        formatsCount = MaxFormats;
         if (kDown & KEY_START)
         {
             buildCurrentFilePath();
@@ -174,6 +176,7 @@ static bool handleFileConsole()
     }
     else if (currentConsoleMode == LOAD_file)// LOAD_file
     {
+        formatsCount = MaxFormats-extraSaveFormats;
         if (kDown & KEY_START)
         {
             hasClipboard = false;
@@ -213,8 +216,10 @@ static bool handleFileConsole()
         if (kDown & KEY_DOWN && selector < fileCount - 1) { selector++; redraw = true; consoleClear(); }
     }
 
-    if (selectorA >= MaxFormats)    selectorA = 0;
-    else if (selectorA < 0)         selectorA = MaxFormats - 1;
+
+    if (selectorA >= formatsCount)    selectorA = 0;
+    else if (selectorA < 0)         selectorA = formatsCount - 1;
+
 
     strcpy(format, formats[selectorA]);
 
@@ -294,18 +299,17 @@ static void drawEffectEdit(){
 }
 
 static bool handleSettings(){
-    static bool redraw = true;
     switch(settingsState){
         
         case SETTINGS_LIST: {
 
             if(kDown & KEY_UP){
                 settingsSelector = (settingsSelector - 1 + EFFECT_COUNT) % EFFECT_COUNT;
-                redraw = true;
+                updateSettings = true;
             }
             if(kDown & KEY_DOWN){
                 settingsSelector = (settingsSelector + 1) % EFFECT_COUNT;
-                redraw = true;
+                updateSettings = true;
             }
             if(kDown & KEY_A){
                 EffectEntry* e = &effects[settingsSelector];
@@ -314,13 +318,13 @@ static bool handleSettings(){
                 } else {
                     settingsState = SETTINGS_EDIT;
                 }
-                redraw = false;
+                updateSettings = false;
             }
 
-            if(redraw){
+            if(updateSettings){
                 if(settingsState == SETTINGS_LIST) drawEffectsList();
                 else drawEffectEdit();
-                redraw = false;
+                updateSettings = false;
             }
             break;
         }

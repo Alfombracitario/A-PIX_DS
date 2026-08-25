@@ -13,6 +13,8 @@ extern u32 effectBackupPos;
 extern u32 kDown;
 extern u32 kUp;
 extern u16 stack[surfaceSize];
+extern int subSurfaceXoffset;
+extern int subSurfaceYoffset;
 
 EffectEntry effects[EFFECT_COUNT] = {
     { "Invert Colors"  ,    true,  0,   0,  0   },
@@ -214,19 +216,25 @@ bool applyEffect(EffectId id)
         }
 
         case EFFECT_HCROP: {
+            subSurfaceXoffset = 0;
+            subSurfaceYoffset = 0;
             copyFromSurfaceToStack();
             if(surfaceYres > 3){
                 surfaceYres--;
             }
+            dmaFillWords(0, surface, 128 * 128 * 2);
             pasteFromStackToSurface();
             break;
         }
 
         case EFFECT_WCROP: {
+            subSurfaceXoffset = 0;
+            subSurfaceYoffset = 0;
             copyFromSurfaceToStack();
             if(surfaceXres > 3){
                 surfaceXres--;
             }
+            dmaFillWords(0, surface, 128 * 128 * 2);
             pasteFromStackToSurface();
             break;
         }

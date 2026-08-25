@@ -8,7 +8,7 @@
 //	+ bitmap lz77 compressed
 //	Total size: 264 = 264
 //
-//	Time-stamp: 2026-08-11, 18:08:25
+//	Time-stamp: 2026-08-24, 21:21:15
 //	Exported by Cearn's GBA Image Transmogrifier, v1.15.7-dirty
 //	( http://www.coranac.com/projects/#grit )
 //
@@ -25,7 +25,7 @@ const unsigned int GFXselector24Bitmap[66] __attribute__((aligned(4))) __attribu
 	0x01F0A3F5,0xF0FF0590,0xF001F053,0xF001F001,0xF001F001,0xFF01F001,0x01F001F0,0x01F001F0,
 	0x01F001F0,0x01F001F0,0xF001F0FF,0xF001F001,0xF001F001,0xF001F001,0x01F0FC01,0x01F001F0,
 
-	0x01F001F0,0x00560130,
+	0x01F001F0,0xFFC70130,
 };
 
 //}}BLOCK(GFXselector24)

@@ -70,8 +70,7 @@ build/A-Pix/source/main.cpp.o: source/main.cpp \
  build/A-Pix/graphics/GFXinput.h build/A-Pix/graphics/GFXconsoleInput.h \
  build/A-Pix/graphics/GFXselector24.h \
  build/A-Pix/graphics/GFXselector16.h \
- build/A-Pix/graphics/GFXnewImageInput.h \
- build/A-Pix/graphics/GFXbackground.h build/A-Pix/graphics/GFXmore.h \
+ build/A-Pix/graphics/GFXnewImageInput.h build/A-Pix/graphics/GFXmore.h \
  build/A-Pix/graphics/GFXbrushSettings.h \
  build/A-Pix/graphics/GFXselector8.h build/A-Pix/graphics/GFXrgbSliders.h \
  build/A-Pix/graphics/GFXselector5.h \
@@ -156,7 +155,6 @@ build/A-Pix/graphics/GFXconsoleInput.h:
 build/A-Pix/graphics/GFXselector24.h:
 build/A-Pix/graphics/GFXselector16.h:
 build/A-Pix/graphics/GFXnewImageInput.h:
-build/A-Pix/graphics/GFXbackground.h:
 build/A-Pix/graphics/GFXmore.h:
 build/A-Pix/graphics/GFXbrushSettings.h:
 build/A-Pix/graphics/GFXselector8.h:

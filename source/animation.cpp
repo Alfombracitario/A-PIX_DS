@@ -156,15 +156,20 @@ void playAnimation()//solo hace un preview de la animación
     int sw = 1 << surfaceXres;
     int sh = 1 << surfaceYres;
 
+    //guardar la paleta en algún lado
+    u16 palcpy[256];
+    for(int i = 0; i < 256; i++){
+        palcpy[i] =  palette[i];
+    }
     while(animation.isPlaying)
     {
+
         animation.pos++;
         if (animation.pos > animation.frames)
             animation.pos = 0;
-
-        loadAnimFrame(stack);
-        DC_FlushRange(stack, pixSize);
-
+        if(paletteBpp != 16){
+            loadAnimFrame(stack);//cargamos antes para tener tiempo
+        }
         for (int i = 0; i < animation.speed; i++)
         {
             scanKeys();
@@ -172,31 +177,23 @@ void playAnimation()//solo hace un preview de la animación
                 animation.isPlaying = false;
                 animation.pos = animPos;
                 drawSurfaceMain();
+                //recuperar paleta
+                for(int i = 0; i < 256; i++){
+                    palette[i] = palcpy[i];
+                }
+                return;
             }
-                
             timerStop();
             swiWaitForVBlank();
             timerContinue();
         }
-
-        frameEndTime = timerRead();
-        updateFPS();
-        drawInfo();
-        timerReset();
-        frameStartTime = timerRead();
-
         if (paletteBpp == 16)
         {
-            for (int y = 0; y < sh; y++)
-            {
-                u16 *dst = pixelsTopVRAM + (y << 7);
-                u16 *src = stack + (y << surfaceXres);
-                dmaCopy(src, dst, sw * 2);
-            }
+            loadAnimFrame(pixelsTopVRAM);
         }
         else
         {
-            // palette[] ya fue actualizado por loadAnimFrame
+            // palette ya fue actualizado por loadAnimFrame
             for (int y = 0; y < sh; y++)
             {
                 u16 *dst = pixelsTopVRAM + (y << 7);
@@ -207,5 +204,10 @@ void playAnimation()//solo hace un preview de la animación
                 }
             }
         }
+
+        frameEndTime = timerRead();
+        drawInfo();
+        timerReset();
+        frameStartTime = timerRead();
     }
 }

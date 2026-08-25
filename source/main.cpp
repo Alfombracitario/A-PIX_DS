@@ -35,7 +35,6 @@
 #include "GFXselector24.h"
 #include "GFXselector16.h"
 #include "GFXnewImageInput.h"
-#include "GFXbackground.h"
 #include "GFXmore.h"
 #include "GFXbrushSettings.h"
 #include "GFXselector8.h"
@@ -94,7 +93,7 @@ u16 __attribute__((section(".dtcm"))) palette[256]; // ram rápida sin cache mis
 
 u16 stack[surfaceSize]; // para operaciones temporales
 u16 onionSkin[surfaceSize]; // el nombre lo dice
-u16 backup[BACKUP_SIZE];     // para undo/redo y cargar imagenes 256kb
+u16 backup[BACKUP_SIZE];// para undo/redo y cargar imagenes 256kb
 
 u16 gradientTable[SCREEN_H];
 
@@ -265,45 +264,28 @@ ConsoleFont font = {
     .numChars = fontTilesLen >> 5,
 };
 
+#define RM 31
+#define GM (31<<5)
+#define BM (31<<10)
 
-// Versión con ponderación 30/70 (aproximación con shift)
-inline u16 mergeColor(u16 o, u16 n) {
-    u8 r0 = (o >> 10) & 31;
-    u8 g0 = (o >> 5) & 31;
-    u8 b0 = o & 31;
-    u8 r1 = (n >> 10) & 31;
-    u8 g1 = (n >> 5) & 31;
-    u8 b1 = n & 31;
-    
-    return (((u16)((r0 + (r1 << 1) + r1 + 2) >> 2) << 10) |
-            ((u16)((g0 + (g1 << 1) + g1 + 2) >> 2) << 5) |
-            ((b0 + (b1 << 1) + b1 + 2) >> 2) |
-            0x8000);
+u16 mergeColor(u16 o, u16 n){
+    const u32 s = (u32)n << 1;
+
+    const u32 r =
+    ((s & (RM*2))+(o & RM)+(n & RM))>>2;
+    const u32 g =
+    (((s & (GM*2))+(o & GM)+(n & GM))>>2) & GM;
+    const u32 b =
+    (((s & (BM*2))+(o & BM)+(n & BM))>>2) & BM;
+
+    return (u16)(r|g|b|0x8000);
 }
 
-void applyOnionSkin(){
-    int xres = 1<<surfaceXres;
-    int yres = 1<<surfaceYres;
-    int i = 0;
-    for(int y = 0; y < yres; y++){
-        i = y<<7;//tamaño de la surface
-        for(int x = 0; x < xres; x++){
-            if(onionSkin[i] != palette[0]){
-                pixelsTop[i] = mergeColor(onionSkin[i],pixelsTop[i]);
-            }
-            i++;
-        }
-    }
-}
+
+
 // FUNCIONES
 void submitVRAM(bool _accurate = false)
 {
-    //PLACEHOLDER!
-    //luego lo optimizaré más lol
-    if(onionSkinEnable == true){
-        applyOnionSkin();
-    }
-
     const u32 sizeTop = surfaceSize << 1;
 
     if (paletteBpp != 16)
@@ -328,7 +310,7 @@ void submitVRAM(bool _accurate = false)
     {
         if (_accurate)
             DC_FlushRange(pixelsTop, sizeTop);
-        // 16bpp: main ya está en VRAM, sub lee desde ahí
+        //pasamos de VRAM a sub
         DMA3_CR = 0;
         DMA3_SRC  = (u32)pixelsTopVRAM;
         DMA3_DEST = (u32)pixelsVRAM;
@@ -398,7 +380,7 @@ __attribute__((section(".itcm"))) void drawPixelSurface(int x, int y, u16 color)
         surface[(y << surfaceXres) + x] = color;
     }
 }
-inline u16 mergeColorAlpha(u16 oldCol, u16 color, u8 alpha)
+u16 mergeColorAlpha(u16 oldCol, u16 color, u8 alpha)
 {
     if (alpha > MAX_ALPHA)
         alpha = MAX_ALPHA;
@@ -415,7 +397,6 @@ inline u16 mergeColorAlpha(u16 oldCol, u16 color, u8 alpha)
     int g2 = (g * alpha + g1 * (MAX_ALPHA - alpha)) / MAX_ALPHA;
     int b2 = (b * alpha + b1 * (MAX_ALPHA - alpha)) / MAX_ALPHA;
 
-    // --- corrección de estancamiento ---
     if (alpha > 0)
     {
         if (r2 == r1)
@@ -639,7 +620,7 @@ __attribute__((section(".itcm"))) void drawLineSurfaceAlpha(int x0, int y0, int 
 __attribute__((section(".itcm"))) void drawGrid(u16 color) {
     int separation = 1 << (subSurfaceZoom + gridSkips);
 
-    dmaFillHalfWords(0, gfxGrid, 64 * 64 * 2);
+    dmaFillWords(0, gfxGrid, 64 * 64 * 2);
 
     if (separation < 2 || separation > 64)
         return;
@@ -662,7 +643,7 @@ __attribute__((section(".itcm"))) void drawGrid(u16 color) {
     // líneas horizontales
     for (int y = -phaseY; y < 64; y += separation) {
         if (y >= 0)
-            dmaFillHalfWords(color, gfxGrid + y * 64, 64 * 2);
+            dmaFillWords((u32)(color<<16)|color, gfxGrid + y * 64, 64 * 2);
     }
 }
 
@@ -684,7 +665,7 @@ void updatePreviewPos(){
 __attribute__((section(".itcm"))) void updatePreviewGfx(){
     //reiniciamos visualmente todo
     u16 color = AVinvertColor(palette[paletteOffset]);
-    dmaFillHalfWords(1,gfxSelectedZone, 64 * 64 * 2);
+    dmaFillWords(0,gfxSelectedZone, 64 * 64 * 2);
 
     if(subSurfaceZoom > 0){
         const int _size = 1<<(7-subSurfaceZoom);
@@ -708,8 +689,54 @@ __attribute__((section(".itcm"))) void updatePreviewGfx(){
     }
 }
 //=========================================================DRAW SURFACE========================================================================
+__attribute__((section(".itcm"))) void drawSurfaceMainOnionSkin()
+{
+    updated = true;
+    const int xres = 1 << surfaceXres;
+    const int yres = 1 << surfaceYres;
+    const int size = xres<<surfaceYres;
+    const u16 bgCol = palette[0];
+    if (paletteBpp == 16)
+    {
+        u16 *dst = (u16*)pixelsTopVRAM; // directo a VRAM
+        const u16 *src = surface;
+        if (xres == 128)
+        {
+            for(int i = 0; i < size; i++){
+                dst[i] = onionSkin[i] != bgCol ? mergeColor(onionSkin[i],src[i]) : src[i];
+            }
+            return;
+        }
+        int i = 0;
+        for(int y = 0; y < yres; y++){
+            i = y<<7;//tamaño de la surface
+            for(int x = 0; x < xres; x++){
+                dst[i] = onionSkin[i] != bgCol ? mergeColor(onionSkin[i],src[i]) : src[i];
+                i++;
+            }
+        }
+        return;
+    }
+
+    const u16 *pal = palette + paletteOffset;
+    const u16 *src = surface;
+    u16 *dst = pixelsTop;
+
+    int i = 0;
+    for(int y = 0; y < yres; y++){
+        i = y<<7;//tamaño de la surface
+        for(int x = 0; x < xres; x++){
+            dst[i] = onionSkin[i] != bgCol ? mergeColor(onionSkin[i],pal[src[i]]) : pal[src[i]];
+            i++;
+        }
+    }
+}
 __attribute__((section(".itcm"))) void drawSurfaceMain()
 {
+    if(onionSkinEnable){
+        drawSurfaceMainOnionSkin();
+        return;
+    }
     updated = true;
     const int xres = 1 << surfaceXres;
     const int yres = 1 << surfaceYres;
@@ -720,7 +747,7 @@ __attribute__((section(".itcm"))) void drawSurfaceMain()
         const u16 *src = surface;
         if (xres == 128)
         {
-            memcpy(dst,src, 128 * yres * 2);//más lento que DMA, pero no hay problemas de Cache
+            memcpy(dst,src, 128 * yres * 2);
             return;
         }
         for (int i = 0; i < yres; i++, dst += 128, src += xres)
@@ -1151,7 +1178,7 @@ void setEditorSprites()
     palettePos = 0;
     paletteOffset = 0;
     gfxGrid = oamAllocateGfx(&oamSub, SpriteSize_64x64, SpriteColorFormat_Bmp);
-    dmaFillHalfWords(0, gfxGrid, 64 * 64 * 2);
+    dmaFillWords(0, gfxGrid, 64 * 64 * 2);
     gfxSelectedZone = oamAllocateGfx(&oamMain, SpriteSize_64x64, SpriteColorFormat_Bmp);
     
     for(int i = gridOamId; i < 4; i++)
@@ -1318,6 +1345,7 @@ void textMode()
     consoleSetFont(&topConsole, &font);
     oamClear(&oamSub, 0, 128);
     oamUpdate(&oamSub);
+    selectorA = 0;
 }
 extern u16* orig;
 extern int count;
@@ -1372,7 +1400,7 @@ void textKeyboardDraw()
     // añadir capa de preview
     bgPreview = bgInitSub(3, BgType_Bmp16, BgSize_B16_128x128, 4, 0);
     bgPreviewGfx = bgGetGfxPtr(bgPreview);
-    dmaFillHalfWords(0, bgPreviewGfx, 128 * 128 * 2);
+    dmaFillWords(0, bgPreviewGfx, 128 * 128 * 2);
 
     int bg2 = bgInitSub(2, BgType_Bmp8, BgSize_B8_256x256, 0, 0);
 
@@ -1436,24 +1464,31 @@ void bitmapMode()
     drawColorPalette();
 }
 
-char bucketText[2][6] = {"Color", "Index"};
+const char bucketText[2][6] = {"Color", "Index"};
 void drawInfo()
 {
-    consoleClear();
+    // Guardar posición del cursor y moverlo al inicio (fila 0, columna 0)
+    printf("\033[s\033[H");
+    
 #ifdef DEBUG_CPU
     u32 ticks = frameEndTime - frameStartTime;
     u32 cpuUsage = ((u64)(ticks) * 11732) >> 16;
-    printf("%d", cpuUsage);
+    printf("\033[K%d", cpuUsage);
 #endif
-    if (animation.frames != 0)
-        printf("\nframe: %d / %d \nanim speed: %d", animation.pos, animation.frames, animation.speed);
+    
+    if (animation.frames != 0) {
+        printf("\n\033[Kframe: %d / %d \nanim speed: %d", 
+               animation.pos, animation.frames, animation.speed);
+    }
 
-    if (bucketMode != 0)
-        printf("\nBucket: replace %s", bucketText[bucketMode - 1]);
+    if (bucketMode != 0) {
+        printf("\n\033[KBucket: replace %s", bucketText[bucketMode - 1]);
+    }
 
-    if (onionSkinEnable)
-        printf("\nOnion skin enabled");
-
+    if (onionSkinEnable) {
+        printf("\n\033[KOnion skin enabled");
+    }
+    printf("\033[u");
 }
 //============================================================= SD CARD ===============================================|
 void createAppFolder()
@@ -1525,12 +1560,18 @@ int getActionsFromTouch(int button)
         if(showGrid)
             drawGrid(AVinvertColor(palette[paletteOffset]));
         else
-            dmaFillHalfWords(0, gfxGrid, 64 * 64 * 2);
+            dmaFillWords(0, gfxGrid, 64 * 64 * 2);
         break;
     case 7:
         if(animation.frames > 0)
         {
-            onionSkinEnable = !onionSkinEnable;
+            consoleClear();
+            if(onionSkinEnable){
+                onionSkinEnable = false;
+            }else{
+                dmaFillWords((u32)(palette[0]<<16)|palette[0], onionSkin, surfaceSize*2);
+                onionSkinEnable = true;
+            }
             drawSurfaceMain();
         }else{
             onionSkinEnable = false;
@@ -1549,13 +1590,13 @@ void applyActions(int actions)
     {
         // --- Scroll por bloques ---
         if (actions & ACTION_UP)
-            subSurfaceYoffset -= blockSize;
+            subSurfaceYoffset -= blockSize;previewPosAlpha = 15;
         if (actions & ACTION_DOWN)
-            subSurfaceYoffset += blockSize;
+            subSurfaceYoffset += blockSize;previewPosAlpha = 15;
         if (actions & ACTION_LEFT)
-            subSurfaceXoffset -= blockSize;
+            subSurfaceXoffset -= blockSize;previewPosAlpha = 15;
         if (actions & ACTION_RIGHT)
-            subSurfaceXoffset += blockSize;
+            subSurfaceXoffset += blockSize;previewPosAlpha = 15;
 
         if (actions & ACTION_ZOOM_IN && gridSkips < surfaceXres)
         {
@@ -2195,7 +2236,7 @@ void shiftLeftWrap()
 }
 //====================================================================MAIN==================================================================================================================|
 //lo quitaré del itcm cuando me falte espacio ahí lol
-__attribute__((section(".itcm"))) int main(void)
+int main(void)
 {
     defaultExceptionHandler(); // Mostrar crasheos
     // Intentar montar la SD
@@ -2384,7 +2425,7 @@ __attribute__((section(".itcm"))) int main(void)
         {
             showGrid = !showGrid;
             if(showGrid)
-            {drawGrid(AVinvertColor(palette[paletteOffset]));}else{dmaFillHalfWords(0, gfxGrid, 64 * 64 * 2);}
+            {drawGrid(AVinvertColor(palette[paletteOffset]));}else{dmaFillWords(0, gfxGrid, 64 * 64 * 2);}
             goto frameEnd;
         }
         //===========================================PALETAS=========================================================
@@ -2506,6 +2547,7 @@ __attribute__((section(".itcm"))) int main(void)
                         {
                             bucketMode = 0;
                         }
+                        consoleClear();
                     }
                     if (currentTool == TOOL_BRUSH)
                     {
@@ -2791,7 +2833,7 @@ __attribute__((section(".itcm"))) int main(void)
             updatePreviewPos();
         }
         
-        updateFPS();
+        //updateFPS();
 
         if (kUp & KEY_TOUCH && drew == true)
         {

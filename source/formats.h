@@ -56,11 +56,12 @@ int png_export(const char *path, const u16 *surf, const u16 *pal);
 #define formatGBA4      10
 #define formatPAL       11
 #define formatPal1555   12
-#define formatGIF       13
+#define formatACSnopal  13
+#define formatACSpal    14
 
-#define MaxFormats 13
-
-const char texts[MaxFormats][24] = {
+#define MaxFormats 15
+#define extraSaveFormats 2
+const char texts[MaxFormats][16] = {
     ".acs",
     ".png",
     ".pcx",
@@ -73,9 +74,11 @@ const char texts[MaxFormats][24] = {
     ".bin[SNES 8bpp]",
     ".bin[GBA 4bpp]",
     ".pal[YY-CHR]",
-    ".pal[1555]"
+    ".pal[1555]",
+    ".acs[only img]",
+    ".acs[only pal]"
 };
-const char formats[MaxFormats][6] = {
+const char formats[MaxFormats][8] = {
     ".acs",
     ".png",
     ".pcx",
@@ -88,7 +91,9 @@ const char formats[MaxFormats][6] = {
     ".bin",
     ".bin",
     ".pal",
-    ".pal"
+    ".pal",
+    ".acs",
+    ".acs"
 };
 
 #endif // FORMATS_H

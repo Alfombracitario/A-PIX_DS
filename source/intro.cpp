@@ -167,6 +167,7 @@ void genGradient(){
         gradientTable[i] = color;
         gradientTable[SCREEN_H-i] = color;
     }
+    DC_FlushRange(gradientTable, 64);
     frame++;
 }
 void intro() {

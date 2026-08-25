@@ -134,6 +134,7 @@ inline void readCommand8(u8 byte, int* pInd, u16* surface){
 }
 
 void importACS(const char* path, u16* surface, u16* pal){
+    //este loader debe ser capaz de cargar todos los tipos de ACS que puedan entrar a esta app
 
     //usamos backup para leer el archivo en RAM
     u8* data = (u8*)backup;
@@ -153,8 +154,6 @@ void importACS(const char* path, u16* surface, u16* pal){
     // ---------- byte 0: version y otros datos ----------
     bool usePalette = (data[0] & ACStypeusesPalette);
 
-    memset(surface, 0, 32768);
-
     int ind = 1;
 
     // ---------- byte 1: resolución ----------
@@ -170,9 +169,6 @@ void importACS(const char* path, u16* surface, u16* pal){
     if(resY == -1){ resY = (data[ind]<<8) | data[ind+1]; ind+=2; }
 
     if(resX > 128 || resY > 128) return;
-
-    surfaceXres = log2(resX);
-    surfaceYres = log2(resY);
 
     u32 imgRes = (u32)resX * (u32)resY;
 
@@ -198,56 +194,60 @@ void importACS(const char* path, u16* surface, u16* pal){
 
         // --- leer paleta ---
         if(usePalette){
-        switch(colorMode){
+            switch(colorMode){
 
-            case ACScolModeARGB1555:
-                for(int i = 0; i <= colorCount; i++){
-                    pal[i] = ((u16)data[ind] << 8) | data[ind+1];
-                    ind += 2;
-                }
-            break;
+                case ACScolModeARGB1555:
+                    for(int i = 0; i <= colorCount; i++){
+                        pal[i] = ((u16)data[ind] << 8) | data[ind+1];
+                        ind += 2;
+                    }
+                break;
 
-            case ACScolModeARGB8888:
-                for(int i = 0; i <= colorCount; i++){
-                    u8 a = data[ind++] >> 7;
-                    u8 r = data[ind++] >> 3;
-                    u8 g = data[ind++] >> 3;
-                    u8 b = data[ind++] >> 3;
-                    pal[i] = (u16)((a<<15)|(r<<10)|(g<<5)|b);
-                }
-            break;
+                case ACScolModeARGB8888:
+                    for(int i = 0; i <= colorCount; i++){
+                        u8 a = data[ind++] >> 7;
+                        u8 r = data[ind++] >> 3;
+                        u8 g = data[ind++] >> 3;
+                        u8 b = data[ind++] >> 3;
+                        pal[i] = (u16)((a<<15)|(r<<10)|(g<<5)|b);
+                    }
+                break;
 
-            case ACScolModeGrayScale4:
-                for(int i = 0; i <= colorCount; i++){
-                    u8 v  = data[ind++];
-                    u8 hi = (v & 0xF0) >> 3;
-                    u8 lo = (v & 0x0F) << 1;
-                    pal[i++] = 0x8000 | (hi<<10) | (hi<<5) | hi;
-                    if(i >= colorCount) break;
-                    pal[i]   = 0x8000 | (lo<<10) | (lo<<5) | lo;
-                }
-            break;
+                case ACScolModeGrayScale4:
+                    for(int i = 0; i <= colorCount; i++){
+                        u8 v  = data[ind++];
+                        u8 hi = (v & 0xF0) >> 3;
+                        u8 lo = (v & 0x0F) << 1;
+                        pal[i++] = 0x8000 | (hi<<10) | (hi<<5) | hi;
+                        if(i >= colorCount) break;
+                        pal[i]   = 0x8000 | (lo<<10) | (lo<<5) | lo;
+                    }
+                break;
 
-            case ACScolModeGrayScale8:
-                for(int i = 0; i <= colorCount; i++){
-                    u8 v = data[ind++] >> 3;
-                    pal[i] = 0x8000 | (u16)((v<<10)|(v<<5)|v);
-                }
-            break;
+                case ACScolModeGrayScale8:
+                    for(int i = 0; i <= colorCount; i++){
+                        u8 v = data[ind++] >> 3;
+                        pal[i] = 0x8000 | (u16)((v<<10)|(v<<5)|v);
+                    }
+                break;
 
-            case ACScolModeRGB888:
-                for(int i = 0; i <= colorCount; i++){
-                    u8 r = data[ind++] >> 3;
-                    u8 g = data[ind++] >> 3;
-                    u8 b = data[ind++] >> 3;
-                    pal[i] = 0x8000 | (u16)((r<<10)|(g<<5)|b);
-                }
-            break;
-        }
+                case ACScolModeRGB888:
+                    for(int i = 0; i <= colorCount; i++){
+                        u8 r = data[ind++] >> 3;
+                        u8 g = data[ind++] >> 3;
+                        u8 b = data[ind++] >> 3;
+                        pal[i] = 0x8000 | (u16)((r<<10)|(g<<5)|b);
+                    }
+                break;
+            }
         }
         // modo oculto solo-paleta
         if(resX == 0 || resY == 0) return;
-        
+
+        surfaceXres = log2(resX);
+        surfaceYres = log2(resY);
+        dmaFillWords(0, surface,32768);
+
         // --- cabecera de control ---
         int ByteCtrlCount  = ((int)data[ind]<<8) | data[ind+1]; ind+=2;
         int CommandsCount  = ((int)data[ind]<<8) | data[ind+1]; ind+=2;
@@ -468,15 +468,8 @@ void exportACS(const char* path, u16* surface, u16* pal){
     if(surfaceYres < 2 || surfaceYres >= 8){ return; }
     u8* data = (u8*)backup;
 
-    // -------------------------------------------------------------------
-    // ENCABEZADO (3 bytes + 1 de config de paleta)
-    // -------------------------------------------------------------------
-    u8 ver         = 0;//versión 0
-    u8 compression = 1;//usa compresión
-    u8 fType       = 0;//imagen
-
-    // Byte 0
-    data[0] = (ver << 4) | (fType << 2) | (compression);
+    // Byte 0 configuración del archivo
+    data[0] = ACStypeusesPalette;
 
     // resoluciones ACS (reducido específicamente para esta app)
     u8 resTable[8] = {15,15,1,2,3,5,7,9};
@@ -832,6 +825,296 @@ void exportACS(const char* path, u16* surface, u16* pal){
     
     int finalSize = ind;
     printf("\nProcess finished\n%d bytes.",finalSize);
+    FILE* f = fopen(path, "wb");
+    if(!f){
+        return;
+    }
+
+    fwrite(data, 1, finalSize, f);
+    fclose(f);
+}
+
+void exportACSpal(const char* path, u16* pal){
+    if(paletteBpp > 8){
+        return;
+    }
+    u8* data = (u8*)backup;
+
+    // index of the first byte to write
+    int ind = 4;
+    int gray= 1;
+
+    for(int i = 0; i < 256; i++){
+        u8 r = palette[i] & 31;
+        u8 g = (palette[i]>>5) & 31;
+        u8 b = (palette[i]>>10) & 31;
+        if(r != g && g != b){
+            gray = 0;
+        }   
+    }
+    u16 colorCount = (1<<paletteBpp)-1;//placeholder
+    u8 colorConfig = gray ? ACScolModeGrayScale8 : ACScolModeARGB1555;
+    u8 bpp = 0; // 1bpp, 2bpp, 4bpp, 8bpp
+
+    if(colorCount < 4){
+        bpp = 1;   // 2bpp
+    }else if(colorCount < 16){
+        bpp = 2;   // 4bpp
+    }else if(colorCount < 256){
+        bpp = 3;   // 8bpp
+    }
+    // PALETA
+    if(colorCount > 0){
+        if(colorConfig == ACScolModeARGB1555){
+            for(int i = 0; i <= colorCount; i++){
+                u16 col = pal[i];
+                data[ind++] = col >> 8;
+                data[ind++] = col & 0xFF;
+            }
+        }else{
+            // Grayscale8
+            for(int i = 0; i <= colorCount; i++){
+                u8 g = (pal[i] & 0b11111) << 3;
+                data[ind++] = g;
+            }
+        }
+    }
+    data[0] = ACStypeusesPalette;
+    data[1] = 0;//we don't have an image
+    data[2] = (bpp << 6) | (colorConfig << 3);
+    data[3] = colorCount;
+
+    int finalSize = ind;
+    FILE* f = fopen(path, "wb");
+    if(!f){
+        return;
+    }
+
+    fwrite(data, 1, finalSize, f);
+    fclose(f);
+}
+
+void exportACSnoPal(const char* path, u16* surface){
+    if(paletteBpp > 8){return;}
+    if(surfaceXres < 2 || surfaceXres >= 8){ return; }
+    if(surfaceYres < 2 || surfaceYres >= 8){ return; }
+    u8* data = (u8*)backup;
+
+    // Byte 0
+    data[0] = 0;//don't use palette nor animation
+
+    // resolutions
+    u8 resTable[8] = {15,15,1,2,3,5,7,9};
+    data[1] = (resTable[surfaceXres] << 4) | (resTable[surfaceYres]);
+
+    // índice del primer byte libre después del header
+    int ind = 3;
+
+    int totalPixels = (1<<surfaceXres<<surfaceYres);
+
+    u8 bpp = 0;
+    u8 maxCol = (1<<paletteBpp)-1;
+    if(maxCol < 4){
+        bpp = 1;   // 2bpp
+    }else if(maxCol < 16){
+        bpp = 2;   // 4bpp
+    }else if(maxCol < 256){
+        bpp = 3;   // 8bpp
+    }
+
+    data[2] = (bpp << 6);//color config no se usa aquí
+
+    // ====================== MODO INDEXADO ===========================
+    u8* cmdBuf = (u8*)stack;
+    u8* pixBuf = (u8*)stack+8192;
+    u8* ctrlBuf= (u8*)stack+24576;
+
+    int cmdInd  = 0;
+    int ctrlInd = 0;
+    int pixInd  = 0;
+
+    int  ctrlBit     = 0;
+    u8   currentCtrl = 0;
+
+    int  iPix        = 0;
+    const int MAXPAT = 9;
+    const int MINPAT = 2;
+    const int MINMIRROR = 2;
+    const int MAXMIRROR = 65;
+    u16 lastRaw   = 0;
+    u8  lastIndex = 0;
+
+    while(iPix < totalPixels){
+        if(ctrlBit == 8){
+            ctrlBuf[ctrlInd++] = currentCtrl;
+            currentCtrl = 0;
+            ctrlBit = 0;
+        }
+        u8 index = surface[iPix];
+        int bestSize = 0, bestRepeat = 0, bestMirror = 0, mode = 0;
+        int maxHist = iPix;
+
+        for(int size = MAXPAT; size >= MINPAT; size--)
+        {
+            if(size > maxHist) continue;
+            if(iPix + size > totalPixels) continue;
+
+            if(!isEqual(&surface[iPix - size], &surface[iPix], size)) continue;
+
+            int rep = 1;
+            while(rep < 8){
+                int startB = iPix + rep * size;
+                if(startB + size > totalPixels) break;
+                if(!isEqual(&surface[iPix], &surface[startB], size)) break;
+                rep++;
+            }
+
+            bestSize   = size;
+            bestRepeat = rep;
+            break;
+        }
+
+        for(int size = MAXMIRROR; size >= MINMIRROR; size--)
+        {
+            if(size > maxHist) continue;
+            if(iPix + size > totalPixels) continue;
+
+            if(isMirror(&surface[iPix], &surface[iPix - size], size)){
+                bestMirror = size;
+                break;
+            }
+        }
+
+        int savingPattern = (bestSize > 0) ? (bestSize * bestRepeat) - 1 : 0;
+        int savingMirror  = (bestMirror > 0) ? bestMirror - 1 : 0;
+
+        if(savingPattern > 1 && savingPattern >= savingMirror) mode = 1;
+        else if(savingMirror > 1) mode = 2;
+
+        int run = 0;
+        if(iPix > 0 && index == lastIndex){
+        run = 1;
+        while(iPix + run < totalPixels && run < 128){
+                if((u8)surface[iPix+run] == lastIndex) run++;
+                else break;
+            }
+        }
+        int savingRun = (run > 0) ? run - 1 : 0;
+
+        if(savingPattern > 1 && savingPattern >= savingMirror && savingPattern >= savingRun) mode = 1;
+        else if(savingMirror > 1 && savingMirror >= savingRun) mode = 2;
+        else if(run > 0) mode = 3;
+
+        if(mode == 1){
+            currentCtrl |= (1 << (7 - ctrlBit));
+            u8 cmd = (ACSpattern << 6) | ((bestSize - 2) << 3) | (bestRepeat - 1);
+            cmdBuf[cmdInd++] = cmd;
+            iPix += bestSize * bestRepeat;
+            lastIndex = (u8)surface[iPix - 1];
+            ctrlBit++; continue;
+        }
+        else if(mode == 2){
+            currentCtrl |= (1 << (7 - ctrlBit));
+            u8 cmd = (ACSmirror << 6) | ((bestMirror - 2) & 0b111111);
+            cmdBuf[cmdInd++] = cmd;
+            iPix += bestMirror;
+            lastIndex = (u8)surface[iPix - 1];
+            ctrlBit++; continue;
+        }
+        else if(mode == 3){
+            currentCtrl |= (1 << (7 - ctrlBit));
+            u8 cmd = 0b10000000 | (run - 1);
+            cmdBuf[cmdInd++] = cmd;
+            iPix += run;
+            ctrlBit++; continue;
+        }
+        pixBuf[pixInd++] = index;
+
+        lastRaw   = index;
+        lastIndex = index;
+        iPix++;
+        ctrlBit++;
+    }
+
+    if(ctrlBit > 0){
+        ctrlBuf[ctrlInd++] = currentCtrl;
+    }
+    data[ind++] = (ctrlInd >> 8)  & 0xFF;
+    data[ind++] = (ctrlInd      ) & 0xFF;
+
+    data[ind++] = (cmdInd  >> 8)  & 0xFF;
+    data[ind++] = (cmdInd       ) & 0xFF;
+
+    for(int k = 0; k < ctrlInd; k++){
+        data[ind++] = ctrlBuf[k];
+    }
+    printf("\n%d byte controls",ctrlInd);
+
+    for(int k = 0; k < cmdInd; k++){
+        data[ind++] = cmdBuf[k];
+    }
+    switch(bpp){
+
+        case 0: {//1bpp
+            int bitPos = 7;
+            u8 byte = 0;
+
+            for(int k = 0; k < pixInd; k++){
+                byte |= (pixBuf[k] & 1) << bitPos;
+                if(--bitPos < 0){
+                    data[ind++] = byte;
+                    bitPos = 7;
+                    byte = 0;
+                }
+            }
+            if(bitPos != 7)
+                data[ind++] = byte;
+        } break;
+
+        case 1: {//2bpp
+            int bitPos = 6;
+            u8 byte = 0;
+
+            for(int k = 0; k < pixInd; k++){
+                byte |= (pixBuf[k] & 3) << bitPos;
+                bitPos -= 2;
+                if(bitPos < 0){
+                    data[ind++] = byte;
+                    bitPos = 6;
+                    byte = 0;
+                }
+            }
+            if(bitPos != 6)
+                data[ind++] = byte;
+        } break;
+
+        case 2: {//4bpp
+            int high = 1;
+            u8 byte = 0;
+
+            for(int k = 0; k < pixInd; k++){
+                if(high){
+                    byte = (pixBuf[k] & 0xF) << 4;
+                    high = 0;
+                } else {
+                    byte |= (pixBuf[k] & 0xF);
+                    data[ind++] = byte;//escribir byte
+                    high = 1;
+                    byte = 0;
+                }
+            }
+            if(!high)
+                data[ind++] = byte;//terminar de escribir byte
+        } break;
+
+        case 3: // 8bpp
+            for(int k = 0; k < pixInd; k++){
+                data[ind++] = pixBuf[k];
+            }
+        break;
+    }
+    
+    int finalSize = ind;
     FILE* f = fopen(path, "wb");
     if(!f){
         return;
