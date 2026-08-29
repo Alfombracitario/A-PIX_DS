@@ -201,7 +201,7 @@ void previewFile(int format, const char* filename){
         for(int y = 0; y < sh; y++){
             u16* dst = bgPreviewGfx + y * 128;
             u16* src = stack       + y * sw;
-            dmaCopy(src, dst, sw * 2);
+            dmaCopyAsynch(src, dst, sw * 2);
         }
     } else {
         for(int y = 0; y < sh; y++){

@@ -92,8 +92,8 @@ u16 pixelsTop[surfaceSize];// surface procesado en RAM.
 u16 __attribute__((section(".dtcm"))) palette[256]; // ram rápida sin cache miss, perfecto para acceso aleatorio de paletas
 
 u16 stack[surfaceSize]; // para operaciones temporales
-u16 onionSkin[surfaceSize]; // el nombre lo dice
-u16 backup[BACKUP_SIZE];// para undo/redo y cargar imagenes 256kb
+u16 backup[BACKUP_SIZE];
+u16 onionSkin[surfaceSize];
 
 u16 gradientTable[SCREEN_H];
 
@@ -284,7 +284,7 @@ u16 mergeColor(u16 o, u16 n){
 
 
 // FUNCIONES
-void submitVRAM(bool _accurate = false)
+void submitVRAM(bool _accurate = false, bool _wait = true)
 {
     const u32 sizeTop = surfaceSize << 1;
 
@@ -297,14 +297,17 @@ void submitVRAM(bool _accurate = false)
         DMA2_SRC  = (u32)pixelsTop;
         DMA2_DEST = (u32)pixelsTopVRAM;
         DMA2_CR   = (sizeTop >> 1) | DMA_ENABLE;
-        while (DMA2_CR & DMA_ENABLE);
-
+        
         // leer desde pixelsTop, no desde VRAM
         DMA3_CR = 0;
         DMA3_SRC  = (u32)pixelsTop;
         DMA3_DEST = (u32)pixelsVRAM;
         DMA3_CR   = (sizeTop >> 1) | DMA_ENABLE;
-        while (DMA3_CR & DMA_ENABLE);
+
+        if(_wait){
+            while (DMA2_CR & DMA_ENABLE);
+            while (DMA3_CR & DMA_ENABLE);
+        }
     }
     else
     {
@@ -315,7 +318,8 @@ void submitVRAM(bool _accurate = false)
         DMA3_SRC  = (u32)pixelsTopVRAM;
         DMA3_DEST = (u32)pixelsVRAM;
         DMA3_CR   = (sizeTop >> 1) | DMA_ENABLE;
-        while (DMA3_CR & DMA_ENABLE);
+        if(_wait)
+            while (DMA3_CR & DMA_ENABLE);
     }
 }
 __attribute__((section(".itcm"))) static void vblank_handler(void)
@@ -420,6 +424,7 @@ __attribute__((section(".itcm"))) void drawPixelSurfaceAlpha(int x, int y, u16 c
         surface[index] = mergeColorAlpha(surface[index], color, paletteAlpha);
     }
 }
+
 inline void brushStamp2(int x, int y, u16 color)
 {
     if (paletteAlpha != MAX_ALPHA)
@@ -703,7 +708,11 @@ __attribute__((section(".itcm"))) void drawSurfaceMainOnionSkin()
         if (xres == 128)
         {
             for(int i = 0; i < size; i++){
-                dst[i] = onionSkin[i] != bgCol ? mergeColor(onionSkin[i],src[i]) : src[i];
+                if(onionSkin[i] == bgCol){
+                    dst[i] = src[i];
+                }else{
+                    dst[i] = mergeColor(onionSkin[i],src[i]);
+                }
             }
             return;
         }
@@ -711,7 +720,11 @@ __attribute__((section(".itcm"))) void drawSurfaceMainOnionSkin()
         for(int y = 0; y < yres; y++){
             i = y<<7;//tamaño de la surface
             for(int x = 0; x < xres; x++){
-                dst[i] = onionSkin[i] != bgCol ? mergeColor(onionSkin[i],src[i]) : src[i];
+                if(onionSkin[i] == bgCol){
+                    dst[i] = src[i];
+                }else{
+                    dst[i] = mergeColor(onionSkin[i],src[i]);
+                }
                 i++;
             }
         }
@@ -1279,7 +1292,7 @@ void initBitmap()
     pixelsVRAM = (u16 *)bgGetGfxPtr(bgCanvas);
 
     decompress(GFXinputBitmap, bgGetGfxPtr(bgUI), LZ77Vram);
-    dmaCopy(GFXinputPal, BG_PALETTE_SUB, GFXinputPalLen);    
+    dmaCopyAsynch(GFXinputPal, BG_PALETTE_SUB, GFXinputPalLen);    
 
 
     drawSurfaceMain();
@@ -1322,13 +1335,13 @@ void backupWrite()
     }
     int index = backupIndex * backupSize;
     // copia surface a backup+ su index
-    dmaCopyHalfWords(2, surface, backup + index, backupSize * sizeof(u16));
+    dmaCopyHalfWordsAsynch(2, surface, backup + index, backupSize * sizeof(u16));
 }
 void backupRead()
 {
     // Calculamos el índice del bloque en el array backup
     int index = backupIndex * backupSize;
-    dmaCopyHalfWords(2, backup + index, surface, backupSize * sizeof(u16));
+    dmaCopyHalfWordsAsynch(2, backup + index, surface, backupSize * sizeof(u16));
     accurate = true;
 }
 //====================================================================Compatibilidad con modos gráficos====================================|
@@ -1444,12 +1457,12 @@ void bitmapMode()
     bgUI = bgInitSub(2, BgType_Bmp8, BgSize_B8_256x256, 0, 0);
 
     decompress(GFXinputBitmap, bgGetGfxPtr(bgUI), LZ77Vram);
-    dmaCopy(GFXinputPal, BG_PALETTE_SUB, GFXinputPalLen);
+    dmaCopyAsynch(GFXinputPal, BG_PALETTE_SUB, GFXinputPalLen);
 
     setEditorSprites();
     paletteAlpha = MAX_ALPHA;
     drawSurfaceMain();
-    submitVRAM(true); // recuperamos nuestros queridos datos
+    submitVRAM(true,false); // recuperamos nuestros queridos datos
 
     bgSetScale(bgCanvas, 256, 256);
     bgSetScroll(bgCanvas, -64, -32);
@@ -1464,6 +1477,21 @@ void bitmapMode()
     drawColorPalette();
 }
 
+#ifdef DEBUG_CPU
+u32 cpuUsage;
+u32 maxCpu;
+u32 _cpuDebugIterations;
+inline void calculateCpuUsage(u64 ticks)
+{
+    // Leer resultado del frame anterior
+    cpuUsage = (u32)(REG_DIV_RESULT & 0xFFFFFFFF);
+    
+    // Iniciar nueva división para el próximo frame
+    REG_DIV_NUMER = (s64)ticks;
+    REG_DIV_DENOM = 56;
+    REG_DIVCNT = 0;  // Iniciar división
+}
+#endif
 const char bucketText[2][6] = {"Color", "Index"};
 void drawInfo()
 {
@@ -1471,9 +1499,21 @@ void drawInfo()
     printf("\033[s\033[H");
     
 #ifdef DEBUG_CPU
-    u32 ticks = frameEndTime - frameStartTime;
-    u32 cpuUsage = ((u64)(ticks) * 11732) >> 16;
-    printf("\033[K%d", cpuUsage);
+    calculateCpuUsage(frameEndTime - frameStartTime);
+    timerStop();
+    if(cpuUsage > maxCpu){
+        maxCpu = cpuUsage;
+    }
+    if(_cpuDebugIterations > 29){
+        u32 integer = cpuUsage / 100;
+        u32 decimal = cpuUsage % 100;
+        printf("\033[K%u.%02u%%", integer, decimal);
+        _cpuDebugIterations = 0;
+    }
+    else{
+        _cpuDebugIterations++;
+    }
+    timerContinue();
 #endif
     
     if (animation.frames != 0) {
@@ -1491,8 +1531,8 @@ void drawInfo()
     printf("\033[u");
 }
 //============================================================= SD CARD ===============================================|
-void createAppFolder()
-{
+
+void createAppFolder(){
     mkdir("/_nds/", 0777);
     mkdir(APP_PATH, 0777);
 }
@@ -1569,7 +1609,8 @@ int getActionsFromTouch(int button)
             if(onionSkinEnable){
                 onionSkinEnable = false;
             }else{
-                dmaFillWords((u32)(palette[0]<<16)|palette[0], onionSkin, surfaceSize*2);
+                void* dst = onionSkin;
+                dmaFillWords((u32)(palette[0]<<16)|palette[0],dst, surfaceSize*2);
                 onionSkinEnable = true;
             }
             drawSurfaceMain();
@@ -1584,7 +1625,7 @@ int getActionsFromTouch(int button)
 
 void applyActions(int actions)
 {                                                         
-    accurate = true;                                      
+    accurate = true;
     int blockSize = (1 << surfaceXres) >> subSurfaceZoom;// tamaño de bloque en píxeles según el zoom
     if (kHeld & KEY_L || kHeld & KEY_X)
     {
@@ -2167,8 +2208,8 @@ void shiftUpWrap()
 {
     copyFromSurfaceToStack();
 
-    int width = 1 << stackXres;
-    int height = 1 << stackYres;
+    const int width = 1 << stackXres;
+    const int height = 1 << stackYres;
 
     u16 temp[128];
     memcpy(temp, stack, width * sizeof(u16));
@@ -2176,13 +2217,12 @@ void shiftUpWrap()
     // Mover filas hacia arriba (esto NO toca la última fila todavía)
     for (int y = 0; y < height - 1; y++)
     {
-        int current = y << stackXres;
-        int next = (y + 1) << stackXres;
+        const int current = y << stackXres;
+        const int next = (y + 1) << stackXres;
 
         memcpy(stack + current, stack + next, width * sizeof(u16));
     }
-
-    // Recién ahora coloco la primera fila guardada en la última
+    //fila extra para evitar que desaparezca una por el desplazamientoS
     memcpy(stack + ((height - 1) << stackXres), temp, width * sizeof(u16));
 
     pasteFromStackToSurface();
@@ -2192,14 +2232,14 @@ void shiftRightWrap()
 {
     copyFromSurfaceToStack();
 
-    int width = 1 << stackXres;
-    int height = 1 << stackYres;
+    const int width = 1 << stackXres;
+    const int height = 1 << stackYres;
 
     for (int y = 0; y < height; y++)
     {
-        int row = y << stackXres;
+        const int row = y << stackXres;
 
-        u16 last = stack[row + width - 1];
+        const u16 last = stack[row + width - 1];
 
         for (int x = width - 1; x > 0; x--)
         {

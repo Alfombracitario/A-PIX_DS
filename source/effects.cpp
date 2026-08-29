@@ -6,7 +6,7 @@
 #define clamp(v, lo, hi) ((v) < (lo) ? (lo) : ((v) > (hi) ? (hi) : (v)))
 
 extern void drawSurfaceMain();
-extern void submitVRAM(bool _accurate);
+extern void submitVRAM(bool _accurate, bool _wait);
 extern void copyFromSurfaceToStack();
 extern void pasteFromStackToSurface();
 extern u32 effectBackupPos;
@@ -281,6 +281,6 @@ bool applyEffect(EffectId id)
     }
 
     drawSurfaceMain();
-    submitVRAM(true);
+    submitVRAM(true,false);
     return true;
 }

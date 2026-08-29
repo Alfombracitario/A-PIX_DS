@@ -30,7 +30,7 @@ void loadAnimFrame(u16 *surface){
         u16 *dst = &onionSkin;
         u16 *src = &pixelsTop;
 
-        memcpy(dst, src, 128*128*2);  // destino, origen, tamaño
+        memcpy(dst, src, 128*128*2);
     }
     
 
