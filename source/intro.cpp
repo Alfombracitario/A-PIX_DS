@@ -202,8 +202,10 @@ void intro() {
 
     // --- Pantalla inferior ---
     videoSetModeSub(MODE_5_2D);
-    bgInitSub(3, BgType_Bmp16, BgSize_B16_256x256, 0, 0);
+    bgInitSub(3, BgType_Bmp16, BgSize_B16_128x128, 0, 0);
     decompress(GFXintroBitmap, BG_GFX_SUB, LZ77Vram);
+    bgSetScale(7, 128, 128);
+    bgUpdate();
     
     s16 xOffset = 1024;
     int brightness = -16;

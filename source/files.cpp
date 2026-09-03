@@ -3,8 +3,6 @@
 extern bool usesPages;
 extern int paletteBpp;
 extern bool nesMode;
-extern int surfaceXres;
-extern int surfaceYres;
 extern bool preview;
 extern u16* bgPreviewGfx;
 extern int bgPreview;
@@ -68,25 +66,25 @@ void saveFile(int format, char* path, u16* palette, u16* surface){
             saveBMP_4bpp(path, palette, surface);
         break;
         case formatNES:
-            exportNES(path, surface, 1<<surfaceYres);
+            exportNES(path, surface, 1<<surf.h);
         break;
         case formatGBC:
-            exportGBC(path, surface, 1<<surfaceYres);
+            exportGBC(path, surface, 1<<surf.h);
         break;
         case formatSNES4:
-            exportSNES(path, surface, 1<<surfaceYres);
+            exportSNES(path, surface, 1<<surf.h);
         break;
         case formatGBA4:
-            exportGBA(path, surface, 1<<surfaceYres);
+            exportGBA(path, surface, 1<<surf.h);
         break;
         case formatPCX:
-            exportPCX(path, surface, palette, 1<<surfaceXres, 1<<surfaceYres);
+            exportPCX(path, surface, palette, 1<<surf.w, 1<<surf.h);
         break;
         case formatPAL:
             exportPal(path, palette);
         break;
         case formatSNES8:
-            exportSNES8bpp(path, surface, 1<<surfaceYres);
+            exportSNES8bpp(path, surface, 1<<surf.h);
         break;
         case formatPal1555:
             exportPal1555(path, palette);
@@ -171,8 +169,8 @@ void previewFile(int format, const char* filename){
         return;
     }
     int preBpp         = paletteBpp;
-    int preSurfaceYres = surfaceYres;
-    int preSurfaceXres = surfaceXres;
+    int preSurfh = surf.h;
+    int preSurfw = surf.w;
 
     // lanzar DMA fill en paralelo mientras la CPU prepara el path y carga el archivo
     dmaFillWords(0, bgPreviewGfx, 128 * 128 * 2);
@@ -183,19 +181,19 @@ void previewFile(int format, const char* filename){
     loadFile(format, fullPath, pal, stack);  // CPU ocupada aquí mientras DMA limpia
 
     //flushear para asegurarse de que la imagen se muestre bien.
-    DC_FlushRange(stack, (1 << surfaceXres) * (1 << surfaceYres) * sizeof(u16));
+    DC_FlushRange(stack, (1 << surf.w) * (1 << surf.h) * sizeof(u16));
     DC_FlushRange(pal, 256 * sizeof(u16));
 
-    int maxExp = surfaceYres > surfaceXres ? surfaceYres : surfaceXres;
+    int maxExp = surf.h > surf.w ? surf.h : surf.w;
     //edge case super extraño que inventé porque tengo tocs raros
-    if((surfaceYres-surfaceXres) == -1){
+    if((surf.h-surf.w) == -1){
         maxExp--;
     }
     bgSetScale(bgPreview, 296 >> (7 - maxExp), 296 >> (7 - maxExp));
     bgUpdate();
 
-    int sw = 1 << surfaceXres;
-    int sh = 1 << surfaceYres;
+    int sw = 1 << surf.w;
+    int sh = 1 << surf.h;
 
     if(paletteBpp == 16){
         for(int y = 0; y < sh; y++){
@@ -214,8 +212,8 @@ void previewFile(int format, const char* filename){
     }
 
     paletteBpp  = preBpp;
-    surfaceYres = preSurfaceYres;
-    surfaceXres = preSurfaceXres;
+    surf.h = preSurfh;
+    surf.w = preSurfw;
 }
 
 void buildCurrentFilePath(void) {

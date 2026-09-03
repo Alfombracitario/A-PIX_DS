@@ -8,7 +8,7 @@
 //	+ bitmap lz77 compressed
 //	Total size: 1780 = 1780
 //
-//	Time-stamp: 2026-08-29, 18:03:18
+//	Time-stamp: 2026-09-02, 23:42:17
 //	Exported by Cearn's GBA Image Transmogrifier, v1.15.7-dirty
 //	( http://www.coranac.com/projects/#grit )
 //
@@ -77,7 +77,7 @@ const unsigned int GFXrgbSlidersBitmap[445] __attribute__((aligned(4))) __attrib
 	0xBC7D317D,0x116D02FB,0x117F11FF,0xA0FF51D5,0xFF515D00,0xAB02AC7D,0xFFF1FFF1,0xFFB0FFF1,
 	0xAFFF20A0,0x00C88112,0xFB21D8AF,0xFF515711,0xC4557F11,0x03841903,0x2F23B429,0xFD2503C0,
 	0x11126B10,0xFFF181F0,0xFF71FFF1,0xF5B90088,0xFF11FB30,0x1F13EB11,0xD4FF81A4,0x8C6F7F22,
-	0xFF127F03,0x133D23A0,0xF1FF308B,0xFFF1C0FF,0xFF80FFF1,
+	0xFF127F03,0x133D23A0,0xF1FF308B,0xFFF1C0FF,0x0080FFF1,
 };
 
 //}}BLOCK(GFXrgbSliders)

@@ -60,16 +60,16 @@ FILE* openFileOffset(const char* path, int* dataSize){
     int rowsNeeded = remainingSize / bytesPerRow;
     if (remainingSize % bytesPerRow != 0) rowsNeeded++;
 
-    // Calcular exponente mínimo tal que (1<<surfaceYres) >= rowsNeeded
-    surfaceYres = 0;
+    // Calcular exponente mínimo tal que (1<<surf.h) >= rowsNeeded
+    surf.h = 0;
     int height = 1;
-    while (height < rowsNeeded && surfaceYres < 7) {
+    while (height < rowsNeeded && surf.h < 7) {
         height <<= 1;
-        surfaceYres++;
+        surf.h++;
     }
 
-    surfaceYres = min(surfaceYres, 7);
-    surfaceXres = 7;
+    surf.h = min(surf.h, 7);
+    surf.w = 7;
 
     fseek(f, fileOffset, SEEK_SET);
     return f;
@@ -655,8 +655,8 @@ int exportPCX(const char* path, u16* surface, u16* pal, int width, int height) {
 }
 //gracias Zhennyak! (el hizo el código base para convertir a bmp, lo transformé para que sea compatible con el programa)
 void writeBmpHeader(FILE *f) {
-    int xres = 1 << surfaceXres;
-    int yres = 1 << surfaceYres;
+    int xres = 1 << surf.w;
+    int yres = 1 << surf.h;
 
     int rowSize   = (xres * 3 + 3) & ~3; // padding a múltiplo de 4
     int imageSize = rowSize * yres;
@@ -787,18 +787,18 @@ int loadBMP_direct(const char* filename, uint16_t* surface) {
     int height = infoHeader.biHeight;
     int bpp    = infoHeader.biBitCount;
 
-    // ===================== Calcular surfaceXres y surfaceYres =====================
+    // ===================== Calcular surf.w y surf.h =====================
     int newW = 1, newH = 1;
     int expW = 0, expH = 0;
 
     while(newW < width && expW < 7) { newW <<= 1; expW++; }
     while(newH < height && expH < 7) { newH <<= 1; expH++; }
 
-    surfaceXres = expW;
-    surfaceYres = expH;
+    surf.w = expW;
+    surf.h = expH;
 
-    int paddedW = 1 << surfaceXres;
-    int paddedH = 1 << surfaceYres;
+    int paddedW = 1 << surf.w;
+    int paddedH = 1 << surf.h;
 
     // ===================== Leer pixeles =====================
     fseek(in, fileHeader.bfOffBits, SEEK_SET);
@@ -851,7 +851,7 @@ void saveBMP_indexed(const char* filename, uint16_t* pal, uint16_t* surface) {
     FILE* out = fopen(filename, "wb");
     if(!out) return;
 
-    int width = 1<<surfaceXres, height = 1<<surfaceYres;
+    int width = 1<<surf.w, height = 1<<surf.h;
     int numColors = paletteSize; // máximo
 
     // --- File header ---
@@ -925,7 +925,7 @@ int loadBMP_indexed(const char* filename, uint16_t* pal, uint16_t* surface) {
     int height = infoHeader.biHeight;
     int numColors = infoHeader.biClrUsed ? infoHeader.biClrUsed : 256;
 
-    // ===================== Calcular surfaceXres y surfaceYres =====================
+    // ===================== Calcular surf.w y surf.h =====================
     // Redondear a la siguiente potencia de 2 (máximo 128)
     int newW = 1, newH = 1;
     int expW = 0, expH = 0;
@@ -933,11 +933,11 @@ int loadBMP_indexed(const char* filename, uint16_t* pal, uint16_t* surface) {
     while(newW < width && expW < 7) { newW <<= 1; expW++; }
     while(newH < height && expH < 7) { newH <<= 1; expH++; }
 
-    surfaceXres = expW;  // guardar exponente (0=1px, 7=128px)
-    surfaceYres = expH;
+    surf.w = expW;  // guardar exponente (0=1px, 7=128px)
+    surf.h = expH;
 
-    int paddedW = 1 << surfaceXres;
-    int paddedH = 1 << surfaceYres;
+    int paddedW = 1 << surf.w;
+    int paddedH = 1 << surf.h;
 
     // ===================== Leer paleta (BGRA → ARGB1555) =====================
     for(int i = 0; i < numColors; i++) {
@@ -974,8 +974,8 @@ void saveBMP_4bpp(const char* filename, uint16_t* pal, uint16_t* surface) {
     FILE* out = fopen(filename, "wb");
     if (!out) return;
     paletteBpp = 4;
-    int width  = 1 << surfaceXres;
-    int height = 1 << surfaceYres;
+    int width  = 1 << surf.w;
+    int height = 1 << surf.h;
     int numColors = 16;
 
     int bytesPerRow = ((width + 1) / 2 + 3) & ~3; // alineado a 4 bytes
@@ -1058,18 +1058,18 @@ int loadBMP_4bpp(const char* filename, uint16_t* pal, uint16_t* surface) {
     int height = infoHeader.biHeight;
     int numColors = infoHeader.biClrUsed ? infoHeader.biClrUsed : 16;
 
-    // ===================== Calcular surfaceXres y surfaceYres =====================
+    // ===================== Calcular surf.w y surf.h =====================
     int newW = 1, newH = 1;
     int expW = 0, expH = 0;
 
     while(newW < width  && expW < 7) { newW <<= 1; expW++; }
     while(newH < height && expH < 7) { newH <<= 1; expH++; }
 
-    surfaceXres = expW;
-    surfaceYres = expH;
+    surf.w = expW;
+    surf.h = expH;
 
-    int paddedW = 1 << surfaceXres;
-    int paddedH = 1 << surfaceYres;
+    int paddedW = 1 << surf.w;
+    int paddedH = 1 << surf.h;
 
     // ===================== Leer paleta (BGRA → ARGB1555) =====================
     for(int i = 0; i < numColors; i++) {
@@ -1269,16 +1269,16 @@ static int palette_find_or_add(u16* pal, u16 color) {
     return paletteSize++;
 }
 
-int png_export(const char *path, const u16 *surf, const u16 *pal) {
-    int w = 1 << surfaceXres;
-    int h = 1 << surfaceYres;
+int png_export(const char *path, const u16 *surface, const u16 *pal) {
+    int w = 1 << surf.w;
+    int h = 1 << surf.h;
 
     u8 *rgba = (u8 *)backup;
 
     if (paletteBpp != 16) {
         for (int i = 0; i < h; i++) {
             for (int j = 0; j < w; j++) {
-                u16 idx  = surf[i * w + j] & 0xFF;
+                u16 idx  = surface[i * w + j] & 0xFF;
                 u16 c    = (idx < 256) ? pal[idx] : 0;
                 u32 rgba8 = argb1555_to_rgba8888(c);
                 int p     = (i * w + j) * 4;
@@ -1291,7 +1291,7 @@ int png_export(const char *path, const u16 *surf, const u16 *pal) {
     } else {
         for (int i = 0; i < h; i++) {
             for (int j = 0; j < w; j++) {
-                u16 c    = surf[i * w + j];
+                u16 c    = surface[i * w + j];
                 u32 rgba8 = argb1555_to_rgba8888(c);
                 int p     = (i * w + j) * 4;
                 rgba[p+0] = (rgba8 >> 24) & 0xFF;
@@ -1306,7 +1306,7 @@ int png_export(const char *path, const u16 *surf, const u16 *pal) {
     return (int)error;
 }
 
-int png_import(const char *path, u16 *surf, u16 *pal) {
+int png_import(const char *path, u16 *surface, u16 *pal) {
     unsigned imgW, imgH;
 
     u8 *rgba = (u8 *)backup;
@@ -1339,13 +1339,13 @@ int png_import(const char *path, u16 *surf, u16 *pal) {
 
     paletteBpp = (uniqueColors <= 256) ? 8 : 16;
 
-    surfaceXres = ceilLog2(imgW);
-    surfaceYres = ceilLog2(imgH);
+    surf.w = ceilLog2(imgW);
+    surf.h = ceilLog2(imgH);
 
-    int sw = 1 << surfaceXres;
-    int sh = 1 << surfaceYres;
+    int sw = 1 << surf.w;
+    int sh = 1 << surf.h;
 
-    memset(surf, 0, sw * sh * sizeof(u16));
+    memset(surface, 0, sw * sh * sizeof(u16));
 
     if (paletteBpp == 8) {
         paletteSize = 0;
@@ -1354,14 +1354,14 @@ int png_import(const char *path, u16 *surf, u16 *pal) {
                 int p   = (y * imgW + x) * 4;
                 u16 c   = rgba8888_to_argb1555(rgba[p], rgba[p+1], rgba[p+2], rgba[p+3]);
                 int idx = palette_find_or_add(pal, c);
-                surf[y * sw + x] = (u16)idx;
+                surface[y * sw + x] = (u16)idx;
             }
         }
     } else {
         for (unsigned y = 0; y < imgH; y++) {
             for (unsigned x = 0; x < imgW; x++) {
                 int p = (y * imgW + x) * 4;
-                surf[y * sw + x] = rgba8888_to_argb1555(rgba[p], rgba[p+1], rgba[p+2], rgba[p+3]);
+                surface[y * sw + x] = rgba8888_to_argb1555(rgba[p], rgba[p+1], rgba[p+2], rgba[p+3]);
             }
         }
     }
@@ -1369,229 +1369,3 @@ int png_import(const char *path, u16 *surf, u16 *pal) {
     paletteSize = 256;
     return 0;
 }
-/*
-// ─── EXPORT GIF ────────────────────────────────────────────────────────────────
-// Requiere: animation.frames, animation.delay (en centésimas de segundo),
-//           surfaceXres, surfaceYres, ANIM_TEMP, palette[256] por frame.
-
-void exportGIF(const char* path) {
-    int pixSize = 2 << surfaceXres << surfaceYres;
-    int blkSize = pixSize + PALETTE_SIZE;  // PALETTE_SIZE = 512
-    int sw = 1 << surfaceXres;
-    int sh = 1 << surfaceYres;
-    int totalFrames = animation.frames + 1;
-
-    // Abrir archivo de salida
-    int error = 0;
-    GifFileType* gif = EGifOpenFileName(path, false, &error);
-    if (!gif) return;
-
-    EGifSetGifVersion(gif, true);  // GIF89a (necesario para animación)
-
-    // Cabecera global — usamos la paleta del frame 0 como global
-    // (GIFLIB la requiere aunque luego cada frame use su paleta local)
-    FILE* tmp = fopen(ANIM_TEMP, "rb");
-    if (!tmp) { EGifCloseFile(gif, &error); return; }
-
-    u16 framePalette[256];
-    u8  framePixels[pixSize];
-
-    // Leer paleta del frame 0 para la global
-    fseek(tmp, pixSize, SEEK_SET);
-    fread(framePalette, 1, PALETTE_SIZE, tmp);
-
-    // Construir ColorMapObject global desde framePalette
-    ColorMapObject* globalMap = GifMakeMapObject(256, NULL);
-    for (int i = 0; i < 256; i++) {
-        u16 c = framePalette[i];
-        // BGR555 → RGB888
-        globalMap->Colors[i].Red   = ((c >>  0) & 0x1F) << 3;
-        globalMap->Colors[i].Green = ((c >>  5) & 0x1F) << 3;
-        globalMap->Colors[i].Blue  = ((c >> 10) & 0x1F) << 3;
-    }
-
-    EGifPutScreenDesc(gif, sw, sh, 8, 0, globalMap);
-    GifFreeMapObject(globalMap);
-
-    // Netscape loop extension (loop infinito)
-    u8 loopBlock[] = { 1, 0x00, 0x00 };
-    EGifPutExtensionLeader(gif, APPLICATION_EXT_FUNC_CODE);
-    EGifPutExtensionBlock(gif, 11, "NETSCAPE2.0");
-    EGifPutExtensionBlock(gif, sizeof(loopBlock), loopBlock);
-    EGifPutExtensionTrailer(gif);
-
-    // Escribir cada frame
-    for (int f = 0; f < totalFrames; f++) {
-        fseek(tmp, (long)f * blkSize, SEEK_SET);
-        fread(framePixels, 1, pixSize, tmp);
-        fread(framePalette, 1, PALETTE_SIZE, tmp);
-
-        // Paleta local del frame
-        ColorMapObject* localMap = GifMakeMapObject(256, NULL);
-        for (int i = 0; i < 256; i++) {
-            u16 c = framePalette[i];
-            localMap->Colors[i].Red   = ((c >>  0) & 0x1F) << 3;
-            localMap->Colors[i].Green = ((c >>  5) & 0x1F) << 3;
-            localMap->Colors[i].Blue  = ((c >> 10) & 0x1F) << 3;
-        }
-
-        // Graphic Control Extension: delay y disposición
-        GraphicsControlBlock gcb;
-        gcb.DisposalMode    = DISPOSE_DO_NOT;
-        gcb.UserInputFlag   = false;
-        gcb.DelayTime       = animation.delay;  // centésimas de segundo
-        gcb.TransparentColor = NO_TRANSPARENT_COLOR;
-
-        u8 gcbBuf[4];
-        EGifGCBToExtension(&gcb, gcbBuf);
-        EGifPutExtension(gif, GRAPHICS_EXT_FUNC_CODE, sizeof(gcbBuf), gcbBuf);
-
-        // Descriptor del frame (imagen)
-        EGifPutImageDesc(gif, 0, 0, sw, sh, false, localMap);
-        GifFreeMapObject(localMap);
-
-        // Píxeles fila por fila
-        // En modo indexed: framePixels contiene índices de 8 bits empaquetados en u16
-        // Necesitamos expandir a u8 por píxel
-        if (paletteBpp != 16) {
-            // Los píxeles ya SON índices, pero están en u16 (solo el byte bajo importa)
-            u8 row[sw];
-            for (int y = 0; y < sh; y++) {
-                for (int x = 0; x < sw; x++) {
-                    // framePixels está como u8, índice directo
-                    row[x] = framePixels[y * sw + x];
-                }
-                EGifPutLine(gif, row, sw);
-            }
-        } else {
-            // Modo directo (BGR555): buscar color más cercano en la paleta del frame
-            // (raro exportar GIF en modo directo, pero cubrimos el caso)
-            u8 row[sw];
-            u16* pixels16 = (u16*)framePixels;
-            for (int y = 0; y < sh; y++) {
-                for (int x = 0; x < sw; x++) {
-                    u16 px = pixels16[y * sw + x];
-                    // Buscar índice más cercano en framePalette
-                    int best = 0, bestDist = INT_MAX;
-                    for (int i = 0; i < 256; i++) {
-                        int dr = (int)((px >>  0)&0x1F) - (int)((framePalette[i] >>  0)&0x1F);
-                        int dg = (int)((px >>  5)&0x1F) - (int)((framePalette[i] >>  5)&0x1F);
-                        int db = (int)((px >> 10)&0x1F) - (int)((framePalette[i] >> 10)&0x1F);
-                        int dist = dr*dr + dg*dg + db*db;
-                        if (dist < bestDist) { bestDist = dist; best = i; }
-                    }
-                    row[x] = (u8)best;
-                }
-                EGifPutLine(gif, row, sw);
-            }
-        }
-    }
-
-    fclose(tmp);
-    EGifCloseFile(gif, &error);
-}
-
-
-// ─── IMPORT GIF ────────────────────────────────────────────────────────────────
-// Redimensiona la superficie al tamaño del GIF.
-// Requiere: que surfaceXres/surfaceYres sean modificables y que
-//           exista alguna función para reinicializar la superficie (ajústala).
-
-// Devuelve el log2 del valor (para convertir dimensiones a los campos Xres/Yres)
-static int log2i(int v) {
-    int r = 0;
-    while (v > 1) { v >>= 1; r++; }
-    return r;
-}
-
-void importGIF(const char* path) {
-    int error = 0;
-    GifFileType* gif = DGifOpenFileName(path, &error);
-    if (!gif) return;
-
-    if (DGifSlurp(gif) != GIF_OK) {
-        DGifCloseFile(gif, &error);
-        return;
-    }
-
-    if (gif->ImageCount < 1) {
-        DGifCloseFile(gif, &error);
-        return;
-    }
-
-    int gw = gif->SWidth;
-    int gh = gif->SHeight;
-
-    // Redimensionar superficie al tamaño del GIF
-    // Forzamos a la potencia de 2 más cercana por encima si el motor lo requiere,
-    // o usamos el tamaño exacto si tu sistema lo admite.
-    surfaceXres = log2i(gw);  // ajusta si tu sistema usa otra representación
-    surfaceYres = log2i(gh);
-
-    int sw = 1 << surfaceXres;
-    int sh = 1 << surfaceYres;
-    int pixSize = sw * sh * 2;  // u16 por píxel (índices en u16, solo byte bajo)
-    int blkSize = pixSize + PALETTE_SIZE;
-
-    // Crear/reemplazar ANIM_TEMP
-    FILE* out = fopen(ANIM_TEMP, "wb");
-    if (!out) {
-        DGifCloseFile(gif, &error);
-        return;
-    }
-
-    animation.frames = gif->ImageCount - 1;
-    animation.pos    = 0;
-
-    for (int f = 0; f < gif->ImageCount; f++) {
-        SavedImage*    img = &gif->SavedImages[f];
-        ColorMapObject* cm = img->ImageDesc.ColorMap
-                           ? img->ImageDesc.ColorMap
-                           : gif->SColorMap;
-
-        // Leer delay del GCB si existe
-        GraphicsControlBlock gcb;
-        if (DGifSavedExtensionToGCB(gif, f, &gcb) == GIF_OK) {
-            animation.delay = gcb.DelayTime;  // centésimas de segundo
-        }
-
-        // Escribir píxeles como u16 (índice en byte bajo, byte alto = 0)
-        // El RasterBits de GIFLIB ya son índices u8
-        u8*  src8   = img->RasterBits;
-        u16  pixRow[sw];
-
-        for (int y = 0; y < sh && y < gh; y++) {
-            for (int x = 0; x < sw; x++) {
-                if (x < img->ImageDesc.Width)
-                    pixRow[x] = src8[y * img->ImageDesc.Width + x];
-                else
-                    pixRow[x] = 0;
-            }
-            fwrite(pixRow, sizeof(u16), sw, out);
-        }
-
-        // Escribir paleta: convertir RGB888 → BGR555
-        u16 pal555[256];
-        memset(pal555, 0, sizeof(pal555));
-        if (cm) {
-            int count = cm->ColorCount < 256 ? cm->ColorCount : 256;
-            for (int i = 0; i < count; i++) {
-                u8 r = cm->Colors[i].Red   >> 3;
-                u8 g = cm->Colors[i].Green >> 3;
-                u8 b = cm->Colors[i].Blue  >> 3;
-                pal555[i] = r | (g << 5) | (b << 10);
-            }
-        }
-        fwrite(pal555, 1, PALETTE_SIZE, out);
-    }
-
-    fclose(out);
-    DGifCloseFile(gif, &error);
-
-    // Cargar el primer frame al editor
-    loadAnimFrame(surface);
-    drawSurfaceMain(true);
-    drawSurfaceBottom();
-    accurate = true;
-}
-*/

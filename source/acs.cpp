@@ -15,12 +15,6 @@
 #define ACSpattern 00
 #define ACSrepeat 1
 
-
-// ============================================================================
-//                      Funciones auxiliares
-// ============================================================================
-
-
 static inline uint32_t log2(uint32_t x) {
     uint32_t r = 0;
     if (x >= 0x10000) { x >>= 16; r += 16; }
@@ -168,8 +162,6 @@ void importACS(const char* path, u16* surface, u16* pal){
     if(resX == -1){ resX = (data[ind]<<8) | data[ind+1]; ind+=2; }
     if(resY == -1){ resY = (data[ind]<<8) | data[ind+1]; ind+=2; }
 
-    if(resX > 128 || resY > 128) return;
-
     u32 imgRes = (u32)resX * (u32)resY;
 
     // ---------- byte 2: bpp + colorMode ----------
@@ -244,8 +236,8 @@ void importACS(const char* path, u16* surface, u16* pal){
         // modo oculto solo-paleta
         if(resX == 0 || resY == 0) return;
 
-        surfaceXres = log2(resX);
-        surfaceYres = log2(resY);
+        surf.w = log2(resX);
+        surf.h = log2(resY);
         dmaFillWords(0, surface,32768);
 
         // --- cabecera de control ---
@@ -464,8 +456,8 @@ void exportACS(const char* path, u16* surface, u16* pal){
     //agregar los otros comandos de exportación
 
     // revisar si la imagen es válida (solo aplica a esta app)
-    if(surfaceXres < 2 || surfaceXres >= 8){ return; }
-    if(surfaceYres < 2 || surfaceYres >= 8){ return; }
+    if(surf.w < 2 || surf.w >= 8){ return; }
+    if(surf.h < 2 || surf.h >= 8){ return; }
     u8* data = (u8*)backup;
 
     // Byte 0 configuración del archivo
@@ -473,7 +465,7 @@ void exportACS(const char* path, u16* surface, u16* pal){
 
     // resoluciones ACS (reducido específicamente para esta app)
     u8 resTable[8] = {15,15,1,2,3,5,7,9};
-    data[1] = (resTable[surfaceXres] << 4) | (resTable[surfaceYres]);
+    data[1] = (resTable[surf.w] << 4) | (resTable[surf.h]);
     data[2] = 0;// byte configuraciones color/bpp
     data[3] = 0;// byte 3 = cantidad de colores de paleta
 
@@ -486,7 +478,7 @@ void exportACS(const char* path, u16* surface, u16* pal){
     // -------------------------------------------------------------------
     u8* table = &data[4];
 
-    int totalPixels = (1 << surfaceXres) * (1 << surfaceYres);
+    int totalPixels = (1 << surf.w) * (1 << surf.h);
     int unique = 0;
     int gray   = 1;
     int maxCol = 0;
@@ -896,8 +888,8 @@ void exportACSpal(const char* path, u16* pal){
 
 void exportACSnoPal(const char* path, u16* surface){
     if(paletteBpp > 8){return;}
-    if(surfaceXres < 2 || surfaceXres >= 8){ return; }
-    if(surfaceYres < 2 || surfaceYres >= 8){ return; }
+    if(surf.w < 2 || surf.w >= 8){ return; }
+    if(surf.h < 2 || surf.h >= 8){ return; }
     u8* data = (u8*)backup;
 
     // Byte 0
@@ -905,12 +897,12 @@ void exportACSnoPal(const char* path, u16* surface){
 
     // resolutions
     u8 resTable[8] = {15,15,1,2,3,5,7,9};
-    data[1] = (resTable[surfaceXres] << 4) | (resTable[surfaceYres]);
+    data[1] = (resTable[surf.w] << 4) | (resTable[surf.h]);
 
     // índice del primer byte libre después del header
     int ind = 3;
 
-    int totalPixels = (1<<surfaceXres<<surfaceYres);
+    int totalPixels = (1<<surf.w<<surf.h);
 
     u8 bpp = 0;
     u8 maxCol = (1<<paletteBpp)-1;

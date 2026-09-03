@@ -1,7 +1,7 @@
 #include <climits>
 #include "effects.h"
 #include "avdslib.h"
-
+#include "formatsglobals.h"
 
 #define clamp(v, lo, hi) ((v) < (lo) ? (lo) : ((v) > (hi) ? (hi) : (v)))
 
@@ -13,8 +13,6 @@ extern u32 effectBackupPos;
 extern u32 kDown;
 extern u32 kUp;
 extern u16 stack[surfaceSize];
-extern int subSurfaceXoffset;
-extern int subSurfaceYoffset;
 
 EffectEntry effects[EFFECT_COUNT] = {
     { "Invert Colors"  ,    true,  0,   0,  0   },
@@ -42,7 +40,7 @@ struct ColorEntry {
 //helpers (itcm)
 __attribute__((section(".itcm"))) void indexedToDirect(){
     paletteBpp = 16;
-    const u32 iterations = 1<<surfaceXres<<surfaceYres;
+    const u32 iterations = 1<<surf.w<<surf.h;
     for(int i = 0; i < iterations; i++){
         surface[i] = palette[surface[i]];
     }
@@ -53,7 +51,7 @@ static u8 remapTable[32768];  // Tabla de remapeo separada
 __attribute__((section(".itcm"))) void posterize(int numColors) {
     dmaFillHalfWords(0, temp, 65536*2);
 
-    const int res = 1<<surfaceXres<<surfaceYres;
+    const int res = 1<<surf.w<<surf.h;
     
     // Contar frecuencias
     for(int i = 0; i < res; i++){
@@ -216,11 +214,12 @@ bool applyEffect(EffectId id)
         }
 
         case EFFECT_HCROP: {
-            subSurfaceXoffset = 0;
-            subSurfaceYoffset = 0;
+            surf.x = 0;
+            surf.y = 0;
             copyFromSurfaceToStack();
-            if(surfaceYres > 3){
-                surfaceYres--;
+            if(surf.h > 3){
+                surf.h--;
+                surf.fh = 1<<surf.h;
             }
             dmaFillWords(0, surface, 128 * 128 * 2);
             pasteFromStackToSurface();
@@ -228,11 +227,12 @@ bool applyEffect(EffectId id)
         }
 
         case EFFECT_WCROP: {
-            subSurfaceXoffset = 0;
-            subSurfaceYoffset = 0;
+            surf.x = 0;
+            surf.y = 0;
             copyFromSurfaceToStack();
-            if(surfaceXres > 3){
-                surfaceXres--;
+            if(surf.w > 3){
+                surf.w--;
+                surf.fw = 1<<surf.w;
             }
             dmaFillWords(0, surface, 128 * 128 * 2);
             pasteFromStackToSurface();
@@ -241,8 +241,9 @@ bool applyEffect(EffectId id)
 
         case EFFECT_HEXPAND: {
             copyFromSurfaceToStack();
-            if(surfaceYres < 7){
-                surfaceYres++;
+            if(surf.h < 7){
+                surf.h++;
+                surf.fh = 1<<surf.h;
             }
             pasteFromStackToSurface();
             break;
@@ -250,8 +251,9 @@ bool applyEffect(EffectId id)
 
         case EFFECT_WEXPAND: {
             copyFromSurfaceToStack();
-            if(surfaceXres < 7){
-                surfaceXres++;
+            if(surf.w < 7){
+                surf.w++;
+                surf.fw = 1<<surf.w;
             }
             pasteFromStackToSurface();
             break;

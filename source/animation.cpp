@@ -5,6 +5,8 @@
 
 
 #define PALETTE_SIZE (256 * 2) // 512 bytes, fijo siempre
+static FILE *animationFile = NULL;
+static int currentFramePos = -1;
 
 extern void drawInfo();
 extern void drawSurfaceBottom();
@@ -32,19 +34,28 @@ void loadAnimFrame(u16 *surface){
 
         memcpy(dst, src, 128*128*2);
     }
+
+    const int pixSize = 2 << surf.w << surf.h;
+    const int blkSize = pixSize + PALETTE_SIZE;
+
+
+    if(!animation.isPlaying){
+        animationFile = fopen(ANIM_TEMP, "rb");
+        if (!animationFile)
+            return;
+        fseek(animationFile, (long)animation.pos * blkSize, SEEK_SET);
+    }
+    else{
+        if(animation.pos == 0){
+            fseek(animationFile,0,SEEK_SET);
+        }
+    }
     
+    fread(surface, 1, pixSize, animationFile);      // píxeles
+    fread(palette, 1, PALETTE_SIZE, animationFile); // paleta del frame
 
-    FILE *f = fopen(ANIM_TEMP, "rb");
-    if (!f)
-        return;
-
-    int pixSize = 2 << surfaceXres << surfaceYres;
-    int blkSize = pixSize + PALETTE_SIZE;
-
-    fseek(f, (long)animation.pos * blkSize, SEEK_SET);
-    fread(surface, 1, pixSize, f);      // píxeles
-    fread(palette, 1, PALETTE_SIZE, f); // paleta del frame
-    fclose(f);
+    if(!animation.isPlaying)
+        fclose(animationFile);
 }
 
 void saveAnimFrame()
@@ -55,7 +66,7 @@ void saveAnimFrame()
     if (!f)
         return;
 
-    int pixSize = 2 << surfaceXres << surfaceYres;
+    int pixSize = 2 << surf.w << surf.h;
     int blkSize = pixSize + PALETTE_SIZE;
 
     fseek(f, (long)animation.pos * blkSize, SEEK_SET);
@@ -114,7 +125,7 @@ void deleteAnimFrame()
 
     int fd = fileno(f);
 
-    int pixSize = 2 << surfaceXres << surfaceYres;
+    int pixSize = 2 << surf.w << surf.h;
     int blkSize = pixSize + PALETTE_SIZE;
 
     ftruncate(fd, ((long)animation.pos * blkSize)-1); // deja el archivo en 1024 bytes
@@ -152,18 +163,20 @@ void playAnimation()//solo hace un preview de la animación
     //antes de reproducir la animación debemos guardar el frame actual
     saveAnimFrame();
 
-    int pixSize = 2 << surfaceXres << surfaceYres;
-    int sw = 1 << surfaceXres;
-    int sh = 1 << surfaceYres;
+    int pixSize = 2 << surf.w << surf.h;
+    int sw = 1 << surf.w;
+    int sh = 1 << surf.h;
 
     //guardar la paleta en algún lado
     u16 palcpy[256];
     for(int i = 0; i < 256; i++){
         palcpy[i] =  palette[i];
     }
+    animationFile = fopen(ANIM_TEMP, "rb");
+    if (!animationFile)
+        return;
     while(animation.isPlaying)
     {
-
         animation.pos++;
         if (animation.pos > animation.frames)
             animation.pos = 0;
@@ -197,7 +210,7 @@ void playAnimation()//solo hace un preview de la animación
             for (int y = 0; y < sh; y++)
             {
                 u16 *dst = pixelsTopVRAM + (y << 7);
-                u16 *src = stack + (y << surfaceXres);
+                u16 *src = stack + (y << surf.w);
                 for (int x = 0; x < sw; x++)
                 {
                     dst[x] = palette[src[x]];
@@ -210,4 +223,5 @@ void playAnimation()//solo hace un preview de la animación
         timerReset();
         frameStartTime = timerRead();
     }
+    fclose(animationFile);
 }

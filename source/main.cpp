@@ -114,9 +114,8 @@ touchPosition touch;
 int bgCanvas;
 int bgUI;
 
-
-int backupSize = surfaceSize << 1;
-int backupMax = BACKUP_SIZE/backupSize;
+int backupSize = surfaceBytes;
+int backupMax = BACKUP_SIZE/surfaceBytes;
 
 int backupIndex = -1; // índice del último frame guardado
 int oldestBackup = 0; // límite inferior (el frame más antiguo que aún es válido)
@@ -148,16 +147,20 @@ const u16 nesPalette[64] = {
     0xcbdf, 0xc3d9, 0xd3d4, 0xe7f4, 0xfbf4, 0xd294, 0x8000, 0x8000};
 
 // otras variables
+
+__attribute__((section(".dtcm"))) struct Surface surf = {
+    .w = surfaceMaxExp,
+    .h = surfaceMaxExp,
+    .fw = 1<<surfaceMaxExp,
+    .fh = 1<<surfaceMaxExp,
+    .x = 0,
+    .y = 0,
+    .z = 2,
+    .pz = 2
+};
+
 int __attribute__((section(".dtcm"))) prevtpx = 0;
 int __attribute__((section(".dtcm"))) prevtpy = 0;
-// Exponentes
-// máximo es 7, por favor, no pongas un número mayor a 7.
-int __attribute__((section(".dtcm"))) surfaceXres = 7;
-int __attribute__((section(".dtcm"))) surfaceYres = 7;
-
-int __attribute__((section(".dtcm"))) subSurfaceXoffset = 0;
-int __attribute__((section(".dtcm"))) subSurfaceYoffset = 0;
-int __attribute__((section(".dtcm"))) subSurfaceZoom = 3; // 8 veces más cerca
 
 int previewXoffset = 0;
 int previewYoffset = 0;
@@ -171,14 +174,15 @@ int imgFormat = 0;
 int stylusHoldTimer = STYLUSHOLDTIME;
 bool stylusRepeat = false;
 
-int stackYres = 7;
-int stackXres = 7;
+int stackYres = surfaceMaxExp;
+int stackXres = surfaceMaxExp;
 
 // usado como variable temporal en la creación de imagen nueva
 int resX = 7;
 int resY = 7;
 
 u8 palEditSel = 1;
+
 u32 __attribute__((section(".dtcm"))) kDown = 0;
 u32 __attribute__((section(".dtcm"))) kHeld = 0;
 u32 __attribute__((section(".dtcm"))) kUp = 0;
@@ -195,7 +199,6 @@ bool mayus = false;
 int holdTimer = 0;
 int fileOffset = 0;
 int gridSkips = 0;
-int prevZoom = subSurfaceZoom;
 bool rPressed = false;
 bool showBrushSettings = false;
 bool preview = true;
@@ -280,8 +283,6 @@ u16 mergeColor(u16 o, u16 n){
 
     return (u16)(r|g|b|0x8000);
 }
-
-
 
 // FUNCIONES
 void submitVRAM(bool _accurate = false, bool _wait = true)
@@ -377,11 +378,11 @@ __attribute__((section(".itcm"))) bool brushPatternPass(int x, int y, BrushMode 
 }
 __attribute__((section(".itcm"))) void drawPixelSurface(int x, int y, u16 color)
 {
-    if ((unsigned)x < 1 << surfaceXres &&
-        (unsigned)y < 1 << surfaceYres &&
+    if ((unsigned)x < surf.fw &&
+        (unsigned)y < surf.fh &&
         brushPatternPass(x, y, brushMode))
     {
-        surface[(y << surfaceXres) + x] = color;
+        surface[(y << surf.w) + x] = color;
     }
 }
 u16 mergeColorAlpha(u16 oldCol, u16 color, u8 alpha)
@@ -416,11 +417,11 @@ u16 mergeColorAlpha(u16 oldCol, u16 color, u8 alpha)
 
 __attribute__((section(".itcm"))) void drawPixelSurfaceAlpha(int x, int y, u16 color)
 {
-    if ((unsigned)x < 1 << surfaceXres &&
-        (unsigned)y < 1 << surfaceYres &&
+    if ((unsigned)x < surf.fw &&
+        (unsigned)y < surf.fh &&
         brushPatternPass(x, y, brushMode))
     {
-        int index = (y << surfaceXres) + x;
+        int index = (y << surf.w) + x;
         surface[index] = mergeColorAlpha(surface[index], color, paletteAlpha);
     }
 }
@@ -623,7 +624,7 @@ __attribute__((section(".itcm"))) void drawLineSurfaceAlpha(int x0, int y0, int 
 }
 
 __attribute__((section(".itcm"))) void drawGrid(u16 color) {
-    int separation = 1 << (subSurfaceZoom + gridSkips);
+    int separation = 1 << (surf.z + gridSkips);
 
     dmaFillWords(0, gfxGrid, 64 * 64 * 2);
 
@@ -633,8 +634,8 @@ __attribute__((section(".itcm"))) void drawGrid(u16 color) {
     for (int i = gridOamId; i < gridOamId + 4; i++)
         oamSetHidden(&oamSub, i, false);
 
-    int phaseX = (subSurfaceXoffset << subSurfaceZoom) & (separation - 1);
-    int phaseY = (subSurfaceYoffset << subSurfaceZoom) & (separation - 1);
+    int phaseX = (surf.x << surf.z) & (separation - 1);
+    int phaseY = (surf.y << surf.z) & (separation - 1);
 
     // líneas verticales
     for (int x = -phaseX; x < 64; x += separation) {
@@ -656,8 +657,8 @@ void updatePreviewPos(){
     //este sprite mide 64x64
     //obtenemos los datos como el offset y otras cosas
     oamSet(&oamMain, selectedZoneOamId,
-        previewXoffset+subSurfaceXoffset,
-        previewYoffset+subSurfaceYoffset,
+        previewXoffset+surf.x,
+        previewYoffset+surf.y,
         0, previewPosAlpha,
         SpriteSize_64x64, SpriteColorFormat_Bmp,
         gfxSelectedZone,
@@ -672,8 +673,8 @@ __attribute__((section(".itcm"))) void updatePreviewGfx(){
     u16 color = AVinvertColor(palette[paletteOffset]);
     dmaFillWords(0,gfxSelectedZone, 64 * 64 * 2);
 
-    if(subSurfaceZoom > 0){
-        const int _size = 1<<(7-subSurfaceZoom);
+    if(surf.z > 0){
+        const int _size = 1<<(7-surf.z);
 
         const int offset = ((_size - 1) << 6);
         const int size2 = _size-1;
@@ -697,9 +698,9 @@ __attribute__((section(".itcm"))) void updatePreviewGfx(){
 __attribute__((section(".itcm"))) void drawSurfaceMainOnionSkin()
 {
     updated = true;
-    const int xres = 1 << surfaceXres;
-    const int yres = 1 << surfaceYres;
-    const int size = xres<<surfaceYres;
+    const int xres = surf.fw;
+    const int yres = surf.fh;
+    const int size = xres<<surf.h;
     const u16 bgCol = palette[0];
     if (paletteBpp == 16)
     {
@@ -751,8 +752,8 @@ __attribute__((section(".itcm"))) void drawSurfaceMain()
         return;
     }
     updated = true;
-    const int xres = 1 << surfaceXres;
-    const int yres = 1 << surfaceYres;
+    const int xres = surf.fw;
+    const int yres = surf.fh;
 
     if (paletteBpp == 16)
     {
@@ -796,42 +797,42 @@ __attribute__((section(".itcm"))) void drawSurfaceMain()
 
 void drawSurfaceBottom()
 { // esta funcion ahora se encarga de limitar y actualizar ciertos datos.
-    int visibleX = 128 >> subSurfaceZoom;
-    int visibleY = 128 >> subSurfaceZoom;
+    int visibleX = 128 >> surf.z;
+    int visibleY = 128 >> surf.z;
 
-    int maxX = (1 << surfaceXres) - visibleX;
-    int maxY = (1 << surfaceYres) - visibleY;
+    int maxX = (surf.fw) - visibleX;
+    int maxY = (surf.fh) - visibleY;
 
     if (maxX < 0) maxX = 0;
     if (maxY < 0) maxY = 0;
-    if (subSurfaceXoffset < 0)
-        subSurfaceXoffset = 0;
-    if (subSurfaceYoffset < 0)
-        subSurfaceYoffset = 0;
-    if (subSurfaceXoffset > maxX)
-        subSurfaceXoffset = maxX;
-    if (subSurfaceYoffset > maxY)
-        subSurfaceYoffset = maxY;
+    if (surf.x < 0)
+        surf.x = 0;
+    if (surf.y < 0)
+        surf.y = 0;
+    if (surf.x > maxX)
+        surf.x = maxX;
+    if (surf.y > maxY)
+        surf.y = maxY;
     
     // --- Limitar el zoom ---
-    if(prevZoom != subSurfaceZoom){
-        int maxRes = MAX(surfaceXres, surfaceYres);
+    if(surf.pz != surf.z){
+        int maxRes = MAX(surf.w, surf.h);
     
         int minZoom = 7 - maxRes;
         int maxZoom = 6;
-        if (subSurfaceZoom < minZoom)
+        if (surf.z < minZoom)
         {
-            subSurfaceZoom = minZoom;
+            surf.z = minZoom;
         }
-        if (subSurfaceZoom > maxZoom){
-            subSurfaceZoom = maxZoom;
+        if (surf.z > maxZoom){
+            surf.z = maxZoom;
         }
     }
 
 
-    s16 scale = 256 >> subSurfaceZoom;
+    s16 scale = 256 >> surf.z;
     //un lut para los zooms
-    s16 oamScale = 1<<(subSurfaceZoom+4);
+    s16 oamScale = 1<<(surf.z+4);
     if(oamScale > 256){
         oamScale = 256;
     }
@@ -841,8 +842,8 @@ void drawSurfaceBottom()
     oamUpdate(&oamSub);
     bgSetScale(bgCanvas, scale, scale);
     bgSetScroll(bgCanvas,
-                subSurfaceXoffset - (64 >> subSurfaceZoom), // centrar en x=64..191
-                subSurfaceYoffset);
+                surf.x - (64 >> surf.z), // centrar en x=64..191
+                surf.y);
     bgUpdate();
     updatePreviewPos();
 }
@@ -1305,8 +1306,8 @@ void initBitmap()
     bgSetPriority(bgUI, 0);
     bgSetScale(3, 256, 256);
     //calcular offsets
-    previewXoffset = (SCREEN_W-(1<<surfaceXres))>>1;
-    previewYoffset = (SCREEN_H-(1<<surfaceYres))>>1;
+    previewXoffset = (SCREEN_W-(surf.fw))>>1;
+    previewYoffset = (SCREEN_H-(surf.fh))>>1;
     bgSetScroll(3, -previewXoffset, -previewYoffset);
     bgUpdate();
 
@@ -1317,7 +1318,7 @@ void initBitmap()
 void setBackupVariables()
 {
     backupIndex = 0;
-    backupSize = 1 << surfaceXres << surfaceYres;
+    backupSize = surf.fw << surf.h;
     backupMax = BACKUP_SIZE/backupSize;
     
     // reinicia el backup
@@ -1467,8 +1468,8 @@ void bitmapMode()
     bgSetScale(bgCanvas, 256, 256);
     bgSetScroll(bgCanvas, -64, -32);
 
-    previewXoffset = (SCREEN_W-(1<<surfaceXres))>>1;
-    previewYoffset = (SCREEN_H-(1<<surfaceYres))>>1;
+    previewXoffset = (SCREEN_W-(surf.fw))>>1;
+    previewYoffset = (SCREEN_H-(surf.fh))>>1;
     bgSetScale(bgMain, 256, 256);
     bgSetScroll(bgMain, -previewXoffset, -previewYoffset);
     
@@ -1626,20 +1627,20 @@ int getActionsFromTouch(int button)
 void applyActions(int actions)
 {                                                         
     accurate = true;
-    int blockSize = (1 << surfaceXres) >> subSurfaceZoom;// tamaño de bloque en píxeles según el zoom
+    int blockSize = (surf.fw) >> surf.z;// tamaño de bloque en píxeles según el zoom
     if (kHeld & KEY_L || kHeld & KEY_X)
     {
         // --- Scroll por bloques ---
         if (actions & ACTION_UP)
-            subSurfaceYoffset -= blockSize;previewPosAlpha = 15;
+            surf.y -= blockSize;previewPosAlpha = 15;
         if (actions & ACTION_DOWN)
-            subSurfaceYoffset += blockSize;previewPosAlpha = 15;
+            surf.y += blockSize;previewPosAlpha = 15;
         if (actions & ACTION_LEFT)
-            subSurfaceXoffset -= blockSize;previewPosAlpha = 15;
+            surf.x -= blockSize;previewPosAlpha = 15;
         if (actions & ACTION_RIGHT)
-            subSurfaceXoffset += blockSize;previewPosAlpha = 15;
+            surf.x += blockSize;previewPosAlpha = 15;
 
-        if (actions & ACTION_ZOOM_IN && gridSkips < surfaceXres)
+        if (actions & ACTION_ZOOM_IN && gridSkips < surf.w)
         {
             gridSkips++;
         }
@@ -1653,23 +1654,23 @@ void applyActions(int actions)
         previewPosAlpha = 15;
         // --- Scroll por píxeles ---
         if (actions & ACTION_UP)
-            subSurfaceYoffset--;
+            surf.y--;
         if (actions & ACTION_DOWN)
-            subSurfaceYoffset++;
+            surf.y++;
         if (actions & ACTION_LEFT)
-            subSurfaceXoffset--;
+            surf.x--;
         if (actions & ACTION_RIGHT)
-            subSurfaceXoffset++;
+            surf.x++;
 
         if(moveCanvas == false){
         if (actions & ACTION_ZOOM_IN)
         {
-            subSurfaceZoom++;
+            surf.z++;
             updatePreviewGfx();
         }
-        if (actions & ACTION_ZOOM_OUT && subSurfaceZoom > 0)
+        if (actions & ACTION_ZOOM_OUT && surf.z > 0)
         {
-            subSurfaceZoom--;
+            surf.z--;
             updatePreviewGfx();
         }
         }
@@ -1683,7 +1684,7 @@ void replaceIndex(u16 *surface, u16 oldColor, u16 newColor)
     // guardar un backup para undo
     backupWrite();
     // ahora sí reemplazamos todos los indices
-    int size = 1 << surfaceXres << surfaceYres;
+    int size = surf.fw << surf.h;
     for (int i = 0; i < size; i++)
     {
         if (surface[i] == oldColor)
@@ -1699,7 +1700,7 @@ void swapIndex(u16 oldIndex, u16 newIndex)
     palette[newIndex] = tmp;
 
     // Swap de índices en el surface
-    int total = 1 << surfaceXres << surfaceYres;
+    int total = surf.fw << surf.h;
     for (int i = 0; i < total; i++)
     {
         if (surface[i] == oldIndex)
@@ -1851,13 +1852,13 @@ void applyTool(int x, int y, bool dragging)
     case TOOL_PICKER:
         if (paletteBpp == 16)
         {
-            palette[palettePos] = surface[(y << surfaceXres) + x];
+            palette[palettePos] = surface[(y << surf.w) + x];
             // paletteAlpha = MAX_ALPHA;
             updatePal(0, &palettePos);
         }
         else
         {
-            updatePal(surface[(y << surfaceXres) + x] - color, &palettePos);
+            updatePal(surface[(y << surf.w) + x] - color, &palettePos);
         }
         currentTool = TOOL_BRUSH; // volver a seleccionar el pincel
         oamSetXY(&oamSub, selector24oamID, 0, 16);
@@ -1869,16 +1870,16 @@ void applyTool(int x, int y, bool dragging)
         {
             if (paletteAlpha == 0)
             {
-                floodFill(surface, x, y, surface[(y << surfaceXres) + x], 0, surfaceXres, surfaceYres);
+                floodFill(surface, x, y, surface[(y << surf.w) + x], 0, surf.w, surf.h);
                 break;
             }
-            u16 _col = mergeColorAlpha(surface[(y << surfaceXres) + x], color, paletteAlpha);
-            floodFill(surface, x, y, surface[(y << surfaceXres) + x], _col, surfaceXres, surfaceYres);
+            u16 _col = mergeColorAlpha(surface[(y << surf.w) + x], color, paletteAlpha);
+            floodFill(surface, x, y, surface[(y << surf.w) + x], _col, surf.w, surf.h);
             break;
         }
         else
         {
-            floodFill(surface, x, y, surface[(y << surfaceXres) + x], color, surfaceXres, surfaceYres);
+            floodFill(surface, x, y, surface[(y << surf.w) + x], color, surf.w, surf.h);
         }
         break;
     }
@@ -1888,25 +1889,24 @@ void applyTool(int x, int y, bool dragging)
 void copyFromSurfaceToStack()
 {
     hasClipboard = true;
-    int zoom = subSurfaceZoom - (7 - MAX(surfaceXres, surfaceYres));
 
-    stackXres = surfaceXres - zoom;
-    stackYres = surfaceYres - zoom;
+    stackXres = MIN(surfaceMaxExp-surf.z,surf.w);
+    stackYres = MIN(surfaceMaxExp-surf.z,surf.h);
 
     int stackW = 1 << stackXres;
     int stackH = 1 << stackYres;
-    int rowBytes = stackW << 1; // sizeof(u16) = 2
+    int rowBytes = stackW << 1;//*2 por u16
 
-    int baseOffset = subSurfaceXoffset +
-                     (subSurfaceYoffset << surfaceXres);
+    int baseOffset = surf.x +
+                     (surf.y << surf.w);
 
     u16 *src = surface + baseOffset;
     u16 *dst = stack;
 
-    int surfaceStride = 1 << surfaceXres;
+    int surfaceStride = surf.fw;
 
     // en este caso copiamos todo de una ya que los bits están alineados
-    if (stackW == surfaceStride)
+    if (stackXres == surf.w)
     {
         memcpy(dst, src, rowBytes * stackH);
         return;
@@ -1927,8 +1927,8 @@ void cutFromSurfaceToStack()
     // en vez de optimizar esto, lo haré de la manera más simple posible lol
     copyFromSurfaceToStack();
     // limpiar la pantalla
-    int blockSize = 128 >> subSurfaceZoom;
-    AVdrawRectangleDMA(surface, subSurfaceXoffset, blockSize, subSurfaceYoffset, blockSize, 0, surfaceXres);
+    int blockSize = 1<<surfaceMaxExp>>surf.z;
+    AVdrawRectangleDMA(surface, surf.x, blockSize, surf.y, blockSize, 0, surf.w);
     accurate = true;
 }
 
@@ -1944,7 +1944,7 @@ void pasteFromStackToSurface()
     for (int i = 0; i < ysize; i++) // eje vertical
     {
         int y = (i << stackXres);                                              // fila en el stack
-        int _y = ((i + subSurfaceYoffset) << surfaceXres) + subSurfaceXoffset; // fila en surface con offset
+        int _y = ((i + surf.y) << surf.w) + surf.x; // fila en surface con offset
 
         for (int j = 0; j < xsize; j++)
         {
@@ -1994,7 +1994,7 @@ void flipH()
     for (int i = 0; i < ysize; i++) // eje vertical
     {
         int y = (i << stackXres);                                              // fila en el stack
-        int _y = ((i + subSurfaceYoffset) << surfaceXres) + subSurfaceXoffset; // fila en surface con offset
+        int _y = ((i + surf.y) << surf.w) + surf.x; // fila en surface con offset
 
         for (int j = 0; j < xsize; j++)
         {
@@ -2012,7 +2012,7 @@ void flipV()
     for (int i = 0; i < ysize; i++) // eje vertical
     {
         int y = (((ysize - 1) - i) << stackXres);                              // fila en el stack
-        int _y = ((i + subSurfaceYoffset) << surfaceXres) + subSurfaceXoffset; // fila en surface con offset
+        int _y = ((i + surf.y) << surf.w) + surf.x; // fila en surface con offset
 
         for (int j = 0; j < xsize; j++)
         {
@@ -2029,7 +2029,7 @@ void scaleUp()
     int stackH = 1 << stackYres;
 
     // felicidades, encontraste la peor línea que verás en tu vida!
-    if ((((((stackH - 1) << 1) + 1) + subSurfaceYoffset) << surfaceXres) + ((stackW - 1) << 1) + subSurfaceXoffset > (1 << surfaceXres << surfaceYres))
+    if ((((((stackH - 1) << 1) + 1) + surf.y) << surf.w) + ((stackW - 1) << 1) + surf.x > (surf.fw << surf.h))
     {
         return;
     } // fuera de rango
@@ -2039,13 +2039,13 @@ void scaleUp()
         int srcBase = sy * stackW;
 
         // dos filas destino correspondientes a esta fila fuente
-        int dstRow0 = ((sy << 1) + subSurfaceYoffset) << surfaceXres;
-        int dstRow1 = (((sy << 1) + 1) + subSurfaceYoffset) << surfaceXres;
+        int dstRow0 = ((sy << 1) + surf.y) << surf.w;
+        int dstRow1 = (((sy << 1) + 1) + surf.y) << surf.w;
 
         for (int sx = 0; sx < stackW; ++sx)
         {
             u16 pix = stack[srcBase + sx];
-            int dstCol = (sx << 1) + subSurfaceXoffset;
+            int dstCol = (sx << 1) + surf.x;
 
             // escribir 2x2
             surface[dstRow0 + dstCol] = pix;
@@ -2064,7 +2064,7 @@ void scaleUp()
 void scaleDown()
 {
     cutFromSurfaceToStack();
-    int baseOffset = subSurfaceXoffset + (subSurfaceYoffset << surfaceXres);
+    int baseOffset = surf.x + (surf.y << surf.w);
     int _y = 0;
     int offset = 0;
     if (paletteBpp != 16)
@@ -2075,7 +2075,7 @@ void scaleDown()
         for (int y = 0; y < yres; y++)
         {
             // precalcular algunas cosas
-            offset = (y << surfaceXres) + baseOffset;
+            offset = (y << surf.w) + baseOffset;
             _y = (y << 1) << stackXres;
 
             for (int x = 0; x < xres; x++)
@@ -2091,7 +2091,7 @@ void scaleDown()
 
         for (int y = 0; y < yres; y++)
         {
-            offset = (y << surfaceXres) + baseOffset;
+            offset = (y << surf.w) + baseOffset;
 
             int row0 = (y << 1) << stackXres;
             int row1 = row0 + (1 << stackXres);
@@ -2148,11 +2148,11 @@ void rotatePositive()
     copyFromSurfaceToStack();
 
     int size = 1 << stackXres;
-    int baseOffset = subSurfaceXoffset + (subSurfaceYoffset << surfaceXres);
+    int baseOffset = surf.x + (surf.y << surf.w);
 
     for (int y = 0; y < size; y++)
     {
-        int destOffset = baseOffset + (y << surfaceXres);
+        int destOffset = baseOffset + (y << surf.w);
         for (int x = 0; x < size; x++)
         {
             // (x, y) → (y, size-1-x)
@@ -2166,12 +2166,12 @@ void rotateNegative()
     copyFromSurfaceToStack();
 
     int size = 1 << stackXres;
-    int baseOffset = subSurfaceXoffset + (subSurfaceYoffset << surfaceXres);
+    int baseOffset = surf.x + (surf.y << surf.w);
 
     // Para rotar horario, leer desde cuadrante "inferior" hacia la derecha
     for (int y = 0; y < size; y++)
     {
-        int destOffset = baseOffset + (y << surfaceXres);
+        int destOffset = baseOffset + (y << surf.w);
         for (int x = 0; x < size; x++)
         {
             // leer desde cuadrante rotado (x, y) → (size-1-y, x)
@@ -2351,6 +2351,7 @@ int main(void)
         setBrightness(3, i - 15);
         swiWaitForVBlank();
     }
+
     //========================================================================WHILE LOOP!!!!!!!!!==========================================|
     while(1)
     {
@@ -2492,10 +2493,10 @@ int main(void)
                     int localX = touch.px - SURFACE_X;
                     int localY = touch.py;
 
-                    int srcX = subSurfaceXoffset + (localX >> subSurfaceZoom);
-                    int srcY = subSurfaceYoffset + (localY >> subSurfaceZoom);
+                    int srcX = surf.x + (localX >> surf.z);
+                    int srcY = surf.y + (localY >> surf.z);
 
-                    if (srcY < 1 << surfaceYres) // comprobar si está en el rango (solo por si acaso)
+                    if (srcY < surf.fh) // comprobar si está en el rango (solo por si acaso)
                     {
                         if (!(stylusPressed && prevtpx == srcX && prevtpy == srcY))
                         {

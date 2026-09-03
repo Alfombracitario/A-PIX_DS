@@ -108,10 +108,12 @@ static bool handleNewImage()
     if (kDown & KEY_START || kDown & KEY_A)
     {
         nesMode      = false;
-        surfaceXres  = resX;
-        surfaceYres  = resY;
+        surf.w  = resX;
+        surf.h  = resY;
+        surf.fw = 1<<resX;
+        surf.fh = 1<<resY;
         paletteBpp   = selectorA;
-        subSurfaceZoom = 7 - MAX(surfaceXres, surfaceYres);
+        surf.z = surfaceMaxExp - MAX(surf.w, surf.h);
 
         clearAll();
         bitmapMode();
