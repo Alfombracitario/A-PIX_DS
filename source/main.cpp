@@ -287,23 +287,22 @@ u16 mergeColor(u16 o, u16 n){
 // FUNCIONES
 void submitVRAM(bool _accurate = false, bool _wait = true)
 {
-    const u32 sizeTop = surfaceSize << 1;
 
     if (paletteBpp != 16)
     {
         if (_accurate)
-            DC_FlushRange(pixelsTop, sizeTop);
+            DC_FlushRange(pixelsTop, surfaceBytesVRAM);
 
         DMA2_CR = 0;
         DMA2_SRC  = (u32)pixelsTop;
         DMA2_DEST = (u32)pixelsTopVRAM;
-        DMA2_CR   = (sizeTop >> 1) | DMA_ENABLE;
+        DMA2_CR   = surfaceSizeVRAM | DMA_ENABLE;
         
         // leer desde pixelsTop, no desde VRAM
         DMA3_CR = 0;
         DMA3_SRC  = (u32)pixelsTop;
         DMA3_DEST = (u32)pixelsVRAM;
-        DMA3_CR   = (sizeTop >> 1) | DMA_ENABLE;
+        DMA3_CR   = surfaceSizeVRAM | DMA_ENABLE;
 
         if(_wait){
             while (DMA2_CR & DMA_ENABLE);
@@ -313,12 +312,12 @@ void submitVRAM(bool _accurate = false, bool _wait = true)
     else
     {
         if (_accurate)
-            DC_FlushRange(pixelsTop, sizeTop);
+            DC_FlushRange(pixelsTop, surfaceBytesVRAM);
         //pasamos de VRAM a sub
         DMA3_CR = 0;
         DMA3_SRC  = (u32)pixelsTopVRAM;
         DMA3_DEST = (u32)pixelsVRAM;
-        DMA3_CR   = (sizeTop >> 1) | DMA_ENABLE;
+        DMA3_CR   = surfaceSizeVRAM | DMA_ENABLE;
         if(_wait)
             while (DMA3_CR & DMA_ENABLE);
     }
@@ -706,7 +705,7 @@ __attribute__((section(".itcm"))) void drawSurfaceMainOnionSkin()
     {
         u16 *dst = (u16*)pixelsTopVRAM; // directo a VRAM
         const u16 *src = surface;
-        if (xres == 128)
+        if (xres == surfaceVramWidth)
         {
             for(int i = 0; i < size; i++){
                 if(onionSkin[i] == bgCol){
@@ -759,12 +758,12 @@ __attribute__((section(".itcm"))) void drawSurfaceMain()
     {
         u16 *dst = (u16*)pixelsTopVRAM; // directo a VRAM
         const u16 *src = surface;
-        if (xres == 128)
+        if (xres == surfaceVramWidth)
         {
-            memcpy(dst,src, 128 * yres * 2);
+            memcpy(dst,src, surfaceVramWidth * yres * 2);
             return;
         }
-        for (int i = 0; i < yres; i++, dst += 128, src += xres)
+        for (int i = 0; i < yres; i++, dst += surfaceVramWidth, src += xres)
         {
             u32 *dst32 = (u32*)dst;
             const u32 *src32 = (const u32*)src;
@@ -779,7 +778,7 @@ __attribute__((section(".itcm"))) void drawSurfaceMain()
     const u16 *src = surface;
     u16 *dst = pixelsTop;
 
-    for (int i = 0; i < yres; i++, dst += 128, src += xres)
+    for (int i = 0; i < yres; i++, dst += surfaceVramWidth, src += xres)
     {
         const u16 *row = src;
         u32 *dst32 = (u32*)dst;
@@ -818,7 +817,7 @@ void drawSurfaceBottom()
     if(surf.pz != surf.z){
         int maxRes = MAX(surf.w, surf.h);
     
-        int minZoom = 7 - maxRes;
+        int minZoom = surfaceMaxExp - maxRes;
         int maxZoom = 6;
         if (surf.z < minZoom)
         {
@@ -1281,12 +1280,18 @@ void initBitmap()
     consoleSetFont(&topConsole, &font);
     oamClear(&oamSub, 0, 128);
     bgInit(3, BgType_Bmp16, BgSize_B16_128x128, 0, 0);
-
     videoSetModeSub(MODE_5_2D); // pantalla inferior bitmap
     vramSetBankC(VRAM_C_SUB_BG);
     vramSetBankD(VRAM_D_SUB_SPRITE); // sprites en VRAM 
     // capas
-    bgCanvas = bgInitSub(3, BgType_Bmp16, BgSize_B16_128x128, 4, 0);
+    #if surfaceMaxExp <= 7
+    
+    bgCanvas = bgInitSub(3, BgType_Bmp16, BgSize_B16_256x256, 4, 0);
+    #else
+    bgInit(3, BgType_Bmp16, BgSize_B16_256x256, 0, 0);
+    bgCanvas = bgInitSub(3, BgType_Bmp16, BgSize_B16_256x256, 4, 0);
+    #endif
+    
     bgUI = bgInitSub(2, BgType_Bmp8, BgSize_B8_256x256, 0, 0);
 
 

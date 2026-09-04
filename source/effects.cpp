@@ -2,6 +2,7 @@
 #include "effects.h"
 #include "avdslib.h"
 #include "formatsglobals.h"
+#include "camera.h"
 
 #define clamp(v, lo, hi) ((v) < (lo) ? (lo) : ((v) > (hi) ? (hi) : (v)))
 
@@ -24,7 +25,8 @@ EffectEntry effects[EFFECT_COUNT] = {
     { "Expand width"   ,    true,  0,   0,  0   },
     { "Expand height"  ,    true,  0,   0,  0   },
     { "Convert to 16bpp",   true,  0,   0,  0   },
-    { "Reduce colors"  ,    false, 2,   255,255 }
+    { "Reduce colors"  ,    false, 2,   255,255 },
+    { "Camera dev test",    true,  0,   0,  0   },
 };
 
 u16* orig;
@@ -277,6 +279,11 @@ bool applyEffect(EffectId id)
             }
             posterize(param);
             break;
+        }
+
+        case EFFECT_CAMERA: {
+            paletteBpp = 16;
+            photoPreview();
         }
         default:
             return false;

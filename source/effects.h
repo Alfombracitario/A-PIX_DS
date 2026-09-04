@@ -1,5 +1,5 @@
-#include "formatsglobals.h"
 #pragma once
+#include "formatsglobals.h"
 
 typedef enum {
     EFFECT_INVERT,
@@ -12,6 +12,7 @@ typedef enum {
     EFFECT_HEXPAND,
     EFFECT_TO16BPP,
     EFFECT_POSTERIZE,
+    EFFECT_CAMERA,//temporal tmb
     EFFECT_COUNT
 } EffectId;
 

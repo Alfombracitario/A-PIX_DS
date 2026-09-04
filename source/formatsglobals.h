@@ -42,4 +42,8 @@ struct Surface {
 };
 
 extern struct Surface surf;
+
+//cosas de debug (debería en un futuro crear un archivo para esto, sí)
+#define DSiMode 1
+
 #endif
