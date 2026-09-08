@@ -26,6 +26,8 @@ If you want to run this app I recommend you to use TwilightMenu++ or unlaunch.
 - Custom compact image format (`.acs`)
 - Undo / Redo support
 - Semi-transparent grid, zoom and scroll tools
+- Copy/Cut/Paste image
+- Copy/Paste palette
 - 4 brush types and 4 brush sizes
 - Shift canvas in all directions (with wrap-around)
 - Palette editor with per-channel precision editing and copy/paste
