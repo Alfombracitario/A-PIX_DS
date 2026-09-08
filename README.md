@@ -39,7 +39,7 @@ If you want to run this app I recommend you to use TwilightMenu++ or unlaunch.
 - Color reduction to N colors
 - A few easter eggs hidden somewhere in the app
 - DSi camera to take photos and use them as reference
-
+- various keys shortcuts
 ---
 
 ## Controls
