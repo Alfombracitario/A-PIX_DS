@@ -141,6 +141,7 @@ Each frame must currently be exported individually,`.gif` export is not yet avai
 - **PypeBros**
 - **icesan4096**
 - **warg0scuro**
+- **kirbosh**
 
 Your suggestions is what makes this app better!
 
