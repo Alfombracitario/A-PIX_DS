@@ -63,7 +63,7 @@ build/A-Pix/source/formats.cpp.o: source/formats.cpp \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/teak/fifo.h \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/teak/tlf.h \
  source/formatsglobals.h source/formats.h source/acs.h \
- source/png/lodepng.h
+ source/png/lodepng.h source/animation.h
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds.h:
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/bios.h:
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/ndstypes.h:
@@ -131,3 +131,4 @@ source/formatsglobals.h:
 source/formats.h:
 source/acs.h:
 source/png/lodepng.h:
+source/animation.h:

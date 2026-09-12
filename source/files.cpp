@@ -1,7 +1,9 @@
 #include "files.h"
 #include "textconsole.h"
+#include "animation.h"
+
 extern bool usesPages;
-extern int paletteBpp;
+extern u8 paletteBpp;
 extern bool nesMode;
 extern bool preview;
 extern u16* bgPreviewGfx;
@@ -101,6 +103,9 @@ void saveFile(int format, char* path, u16* palette, u16* surface){
         case formatPNG:
             png_export(path, surface, palette);
         break;
+        case formatAnim:
+            exportAnim(path);
+        break;
     }
 }
 
@@ -161,6 +166,9 @@ void loadFile(int format, char* path, u16* palette, u16* surface){
             usesPages = false;
             png_import(path, surface, palette);
         break;
+        case formatAnim:
+            importAnim(path);
+        break;
     }
 }
 
@@ -168,6 +176,7 @@ void previewFile(int format, const char* filename){
     if(kDown & KEY_TOUCH){
         return;
     }
+    preview = true;
     int preBpp         = paletteBpp;
     int preSurfh = surf.h;
     int preSurfw = surf.w;
@@ -214,6 +223,7 @@ void previewFile(int format, const char* filename){
     paletteBpp  = preBpp;
     surf.h = preSurfh;
     surf.w = preSurfw;
+    preview = false;
 }
 
 void buildCurrentFilePath(void) {
@@ -238,8 +248,77 @@ int enterFolder(int index) {
     }
     return 0; // no es carpeta
 }
+static enum {
+    noDevice,
+    deviceFAT,
+    deviceSD,
+    deviceNand1,
+    deviceNand2,
+    deviceNitro,
+    deviceCount
+} currentDevice = noDevice;
+#ifdef DSiMode
+static int changeDisk(){
+    consoleClear();
+    printf("Select a device:\n\n");
+    int deviceCount = 0;
+    if(chdir("fat:/") == 0){
+        printf("[UP] -> Flashcard\n");
+        deviceCount++;
+        currentDevice = deviceFAT;
+    }
+    if(chdir("sd:/") == 0){
+        printf("[DOWN] -> SD card\n");
+        deviceCount++;
+        currentDevice = deviceSD;
+    }
+    if(deviceCount == 1){
+        switch(currentDevice){
+            case deviceFAT:
+                chdir("fat:/");
+            break;
+
+            case deviceSD:
+                chdir("sd:/");
+            break;
+
+            case noDevice:
+                return -1;//error
+            break;
+        }
+        changeMode:
+        consoleClear();
+        currentDir = opendir(".");
+        selector = 0;
+        selectorA = 0;
+        redraw = true;
+        return 1;
+    }
+    while(1){
+        scanKeys();
+        kDown = keysDown();
+        if(kDown & KEY_UP){
+            chdir("fat:/");
+            goto changeMode;
+        }
+        else if(kDown & KEY_DOWN){
+            chdir("sd:/");
+            goto changeMode;
+        }
+        swiWaitForVBlank();
+    }
+}
+#endif
 int goBack() {
-    if(strcmp(path, "/") == 0) return 0; // ya en raíz
+    if(strcmp(path, "/") == 0){
+        #ifdef DSiMode
+        //no puedes cambiar de disco si hay frames de una animación
+        if(animation.frames == 0){
+            changeDisk();
+        }
+        #endif
+        return 0;
+    }
 
     // quitar última carpeta
     char* lastSlash = strrchr(path, '/');
@@ -255,8 +334,10 @@ int goBack() {
     if(currentDir) closedir(currentDir);
     currentDir = opendir(path);
     selector = 0;
+    redraw = true;
     return 1;
 }
+
 int compare_dirent(const void* a, const void* b) {
     u8 idxA = *(const u8*)a;
     u8 idxB = *(const u8*)b;

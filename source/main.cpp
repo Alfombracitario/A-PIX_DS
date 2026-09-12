@@ -29,6 +29,7 @@
 #include "avdslib.h"
 #include "intro.h" //intro global para todos mis juegos
 #include "animation.h"
+#include "formatsglobals.h"
 
 #include "GFXinput.h"
 #include "GFXconsoleInput.h"
@@ -124,9 +125,10 @@ int totalBackups = 0; // cuántos backups se han llenado realmente
 // paletas
 int paletteSize = 256;
 int __attribute__((section(".dtcm"))) palettePos = 0;
-int __attribute__((section(".dtcm"))) paletteBpp = 8;
-
 int __attribute__((section(".dtcm"))) paletteOffset = 0;
+u8 __attribute__((section(".dtcm"))) paletteBpp = 8;
+
+
 int bucketMode;
 bool onionSkinEnable = false;
 bool hasClipboard = false;
@@ -159,8 +161,8 @@ __attribute__((section(".dtcm"))) struct Surface surf = {
     .pz = 2
 };
 
-int __attribute__((section(".dtcm"))) prevtpx = 0;
-int __attribute__((section(".dtcm"))) prevtpy = 0;
+u16 __attribute__((section(".dtcm"))) prevtpx = 0;
+u16 __attribute__((section(".dtcm"))) prevtpy = 0;
 
 int previewXoffset = 0;
 int previewYoffset = 0;
@@ -193,8 +195,8 @@ u32 __attribute__((section(".dtcm"))) frameEndTime = 0;
 bool stylusPressed = false;
 bool showGrid = false;
 bool drew = false;
-bool __attribute__((section(".dtcm"))) updated = false;
-bool __attribute__((section(".dtcm"))) accurate = false;
+bool updated = false;
+bool accurate = false;
 bool mayus = false;
 int holdTimer = 0;
 int fileOffset = 0;
@@ -697,15 +699,13 @@ __attribute__((section(".itcm"))) void updatePreviewGfx(){
 __attribute__((section(".itcm"))) void drawSurfaceMainOnionSkin()
 {
     updated = true;
-    const int xres = surf.fw;
-    const int yres = surf.fh;
-    const int size = xres<<surf.h;
+    const int size = surf.fw<<surf.h;
     const u16 bgCol = palette[0];
     if (paletteBpp == 16)
     {
         u16 *dst = (u16*)pixelsTopVRAM; // directo a VRAM
         const u16 *src = surface;
-        if (xres == surfaceVramWidth)
+        if (surf.fw == surfaceVramWidth)
         {
             for(int i = 0; i < size; i++){
                 if(onionSkin[i] == bgCol){
@@ -717,9 +717,9 @@ __attribute__((section(".itcm"))) void drawSurfaceMainOnionSkin()
             return;
         }
         int i = 0;
-        for(int y = 0; y < yres; y++){
+        for(int y = 0; y < surf.fh; y++){
             i = y<<7;//tamaño de la surface
-            for(int x = 0; x < xres; x++){
+            for(int x = 0; x < surf.fw; x++){
                 if(onionSkin[i] == bgCol){
                     dst[i] = src[i];
                 }else{
@@ -736,9 +736,9 @@ __attribute__((section(".itcm"))) void drawSurfaceMainOnionSkin()
     u16 *dst = pixelsTop;
 
     int i = 0;
-    for(int y = 0; y < yres; y++){
+    for(int y = 0; y < surf.fh; y++){
         i = y<<7;//tamaño de la surface
-        for(int x = 0; x < xres; x++){
+        for(int x = 0; x < surf.fw; x++){
             dst[i] = onionSkin[i] != bgCol ? mergeColor(onionSkin[i],pal[src[i]]) : pal[src[i]];
             i++;
         }
@@ -751,23 +751,21 @@ __attribute__((section(".itcm"))) void drawSurfaceMain()
         return;
     }
     updated = true;
-    const int xres = surf.fw;
-    const int yres = surf.fh;
 
     if (paletteBpp == 16)
     {
         u16 *dst = (u16*)pixelsTopVRAM; // directo a VRAM
         const u16 *src = surface;
-        if (xres == surfaceVramWidth)
+        if (surf.fw == surfaceVramWidth)
         {
-            memcpy(dst,src, surfaceVramWidth * yres * 2);
+            memcpy(dst,src,surfaceVramWidth<<surfaceMaxExp<<1);
             return;
         }
-        for (int i = 0; i < yres; i++, dst += surfaceVramWidth, src += xres)
+        for (int i = 0; i < surf.fh; i++, dst += surfaceVramWidth, src += surf.fw)
         {
             u32 *dst32 = (u32*)dst;
             const u32 *src32 = (const u32*)src;
-            for (int j = 0; j < (xres >> 1); j++)
+            for (int j = 0; j < (surf.fw >> 1); j++)
                 dst32[j] = src32[j];
         }
         return;
@@ -778,18 +776,18 @@ __attribute__((section(".itcm"))) void drawSurfaceMain()
     const u16 *src = surface;
     u16 *dst = pixelsTop;
 
-    for (int i = 0; i < yres; i++, dst += surfaceVramWidth, src += xres)
+    for (int i = 0; i < surf.fh; i++, dst += surfaceVramWidth, src += surf.fw)
     {
         const u16 *row = src;
         u32 *dst32 = (u32*)dst;
         int j = 0;
-        for (; j < xres - 1; j += 2)
+        for (; j < surf.fw - 1; j += 2)
         {
             u32 a = pal[row[j]];
             u32 b = pal[row[j + 1]];
             dst32[j >> 1] = a | (b << 16);
         }
-        if (j < xres)
+        if (j < surf.fw)
             dst[j] = pal[row[j]];
     }
 }
@@ -1279,14 +1277,13 @@ void initBitmap()
     consoleInit(&topConsole, 0, BgType_Text4bpp, BgSize_T_256x256, 31, 4, true, true);
     consoleSetFont(&topConsole, &font);
     oamClear(&oamSub, 0, 128);
-    bgInit(3, BgType_Bmp16, BgSize_B16_128x128, 0, 0);
     videoSetModeSub(MODE_5_2D); // pantalla inferior bitmap
     vramSetBankC(VRAM_C_SUB_BG);
     vramSetBankD(VRAM_D_SUB_SPRITE); // sprites en VRAM 
     // capas
     #if surfaceMaxExp <= 7
-    
-    bgCanvas = bgInitSub(3, BgType_Bmp16, BgSize_B16_256x256, 4, 0);
+    bgInit(3, BgType_Bmp16, BgSize_B16_128x128, 0, 0);
+    bgCanvas = bgInitSub(3, BgType_Bmp16, BgSize_B16_128x128, 4, 0);
     #else
     bgInit(3, BgType_Bmp16, BgSize_B16_256x256, 0, 0);
     bgCanvas = bgInitSub(3, BgType_Bmp16, BgSize_B16_256x256, 4, 0);
@@ -1295,11 +1292,10 @@ void initBitmap()
     bgUI = bgInitSub(2, BgType_Bmp8, BgSize_B8_256x256, 0, 0);
 
 
-    pixelsVRAM = (u16 *)bgGetGfxPtr(bgCanvas);
+    pixelsVRAM = (u16*)bgGetGfxPtr(bgCanvas);
 
     decompress(GFXinputBitmap, bgGetGfxPtr(bgUI), LZ77Vram);
     dmaCopyAsynch(GFXinputPal, BG_PALETTE_SUB, GFXinputPalLen);    
-
 
     drawSurfaceMain();
     drawSurfaceBottom();
@@ -1318,6 +1314,8 @@ void initBitmap()
 
     setEditorSprites();
     setBackupVariables();
+    surf.fw = 1<<surf.w;
+    surf.fh = 1<<surf.h;
 }
 //====================================================================Backups==============================================================|
 void setBackupVariables()
@@ -1327,7 +1325,7 @@ void setBackupVariables()
     backupMax = BACKUP_SIZE/backupSize;
     
     // reinicia el backup
-    for (int i = 0; i < 131072; i++)
+    for (int i = 0; i < BACKUP_SIZE; i++)
     {
         backup[i] = 0;
     }
@@ -1440,10 +1438,12 @@ void textKeyboardDraw()
 }
 void bitmapMode()
 {
+    dmaFillWords(0, pixelsTop, surfaceSize<<1);
     if (currentSubMode == SUB_BITMAP)
         return; // ya estamos en bitmap
     currentSubMode = SUB_BITMAP;
-
+    surf.fw = 1<<surf.w;
+    surf.fh = 1<<surf.h;
     // reiniciamos VRAM
     videoSetMode(MODE_5_2D);
     vramSetBankA(VRAM_A_MAIN_BG);
@@ -2279,9 +2279,16 @@ void shiftLeftWrap()
 
     pasteFromStackToSurface();
 }
+const char* getFileExtension(const char *path)
+{
+    const char *dot = strrchr(path, '.');
+    if (dot == NULL || dot == path) {
+        return NULL;
+    }
+    return dot + 1;
+}
 //====================================================================MAIN==================================================================================================================|
-//lo quitaré del itcm cuando me falte espacio ahí lol
-int main(void)
+int main(int argc, char *argv[])
 {
     defaultExceptionHandler(); // Mostrar crasheos
     // Intentar montar la SD
@@ -2289,20 +2296,18 @@ int main(void)
     bool sd_ok = fatInitDefault();
     if (sd_ok)
     {
-        // Verificar si estamos en una flashcard o DSi
-        // En flashcards, la raíz suele ser "fat:/"
-        // En DSi, es "sd:/"
-
         // Intentar cambiar a fat:/ primero (flashcards)
         if (chdir("fat:/") == 0)
         {
             currentDir = opendir(".");
         }
         // Si falla, intentar sd:/ (DSi)
+        #ifdef DSiMode
         else if (chdir("sd:/") == 0)
         {
             currentDir = opendir(".");
         }
+        #endif
         // Como último recurso, usar la raíz actual
         else
         {
@@ -2317,6 +2322,7 @@ int main(void)
         // --- Inicializar video temporalmente en modo consola (pantalla superior) ---
         videoSetMode(MODE_0_2D); // modo texto
 
+
         // poner pantalla inferior en modo texto temporal
         videoSetModeSub(MODE_0_2D);
         vramSetBankC(VRAM_C_SUB_BG);
@@ -2329,9 +2335,11 @@ int main(void)
         printf("You cannot load or save files.\n\n");
         printf("Try launching from:\n");
         printf(" TwiglightMenu++.\n");
+        #ifdef DSiMode
         if(isDSiMode()){
             printf(" Unlaunch (DSi).\n");
         }
+        #endif
 
         printf("\nStarting in 3 seconds");
         for (int i = 0; i < 3; i++) // cantidad segundos
@@ -2343,20 +2351,54 @@ int main(void)
             }
         }
     }
-    // antes de iniciar el programa, mostramos la intro
-    intro();
+    if (argc < 2) {
+        intro();
+    }
+    
     initGradient();
-
     initBitmap();
+    #ifdef DEBUG_CPU
     initFPS();
     initTimers();
-    // aclarar la pantalla
-    for (int i = 0; i < 16; i++)
-    {
-        setBrightness(3, i - 15);
-        swiWaitForVBlank();
-    }
+    #endif
 
+    // aclarar la pantalla
+    if (argc < 2) {
+        for (int i = 0; i < 16; i++)
+        {
+            setBrightness(3, i - 15);
+            swiWaitForVBlank();
+        }
+    }
+    else{//se cargó un archivo
+        const char *filePath = argv[1];
+        struct stat fileStat;
+        if (stat(filePath, &fileStat) != 0) {
+            printf("Error: File not found!\n%s\n", filePath);
+            goto programStart;
+        }
+        const char *extension = strrchr(filePath, '.');
+        if (extension == NULL) {
+            printf("Error: No extension found\n");
+            goto programStart;
+        }
+        //comparar extensiones para abrir archivo
+        const char *ext = getFileExtension(filePath);
+        if (ext && strcmp(ext, "acs") == 0) {
+            importACS(filePath,surface,palette);
+        }else if (ext && strcmp(ext, "png") == 0){
+            png_import(filePath,surface,palette);
+        }else if (ext && strcmp(ext, "pcx") == 0){
+            importPCX(filePath,surface,palette);
+        }
+        surf.fh = 1<<surf.h;
+        surf.fw = 1<<surf.w;
+        drawSurfaceMain();
+        drawSurfaceBottom();
+        drawColorPalette();
+        submitVRAM(true,true);
+    }
+    programStart:
     //========================================================================WHILE LOOP!!!!!!!!!==========================================|
     while(1)
     {
@@ -2366,11 +2408,14 @@ int main(void)
         kDown = keysDown();
         kHeld = keysHeld();
         kUp = keysUp();
-
-        frameEndTime = timerRead();
+        #ifdef DEBUG_CPU
+            frameEndTime = timerRead();
+        #endif
         drawInfo();
-        timerReset();
-        frameStartTime = timerRead();
+        #ifdef DEBUG_CPU
+            timerReset();
+            frameStartTime = timerRead();
+        #endif
         // verificar si siquiera hay un input en este frame
         if((kUp | kHeld) == 0)
         {
@@ -2890,9 +2935,13 @@ int main(void)
         {
             applyActions(actions);
         }
+        #ifdef DEBUG_CPU
         timerStop();
         swiWaitForVBlank();//ya no hay modo reposo ya que si no hay input no se hace nada.
         timerContinue();
+        #else
+        swiWaitForVBlank();
+        #endif
         if (updated)
         { // llamar a submitVRAM solo si se modificó algo visual
             submitVRAM(accurate);

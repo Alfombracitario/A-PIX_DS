@@ -62,8 +62,8 @@ build/A-Pix/source/main.cpp.o: source/main.cpp \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/teak/dsp.h \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/teak/fifo.h \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/teak/tlf.h \
- build/A-Pix/graphics/font.h source/timers.h source/textconsole.h \
- source/files.h source/formats.h source/acs.h source/formatsglobals.h \
+ build/A-Pix/graphics/font.h source/timers.h source/formatsglobals.h \
+ source/textconsole.h source/files.h source/formats.h source/acs.h \
  source/png/lodepng.h \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/fat.h \
  source/avdslib.h source/intro.h source/animation.h \
@@ -140,11 +140,11 @@ C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/te
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/teak/tlf.h:
 build/A-Pix/graphics/font.h:
 source/timers.h:
+source/formatsglobals.h:
 source/textconsole.h:
 source/files.h:
 source/formats.h:
 source/acs.h:
-source/formatsglobals.h:
 source/png/lodepng.h:
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/fat.h:
 source/avdslib.h:

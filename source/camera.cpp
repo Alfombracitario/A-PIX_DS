@@ -4,6 +4,7 @@
 extern u32 kDown;
 
 static int prepareCamera(){
+    #ifdef DSiMode
     if(!isDSiMode())
         return -1;
     if(!cameraInit())
@@ -12,29 +13,39 @@ static int prepareCamera(){
         return -1;
 
     return 1;
+    #endif
 }
 
-int photoTake(){
+int photoTake(){//bastante hardcodeado por ahora
+    #ifdef DSiMode
     cameraStopTransfer();
-    cameraStartTransfer(backup,
-                            MCUREG_APT_SEQ_CMD_PREVIEW,
-                            CAMERA_NDMA_CHANNEL);
-    while (ndmaBusy(CAMERA_NDMA_CHANNEL))
-            swiWaitForVBlank();
-            cameraStopTransfer();
-    //transformamos el contenido de backup a una resolución menor
-    //hardcodeado por ahora
-    for(int i = 0; i<(128*96); i++){
-        //lo más penca posible por ahora (sí, incluso leyendo basura :>)
-        int x = i<<1;
-        surface[i] = backup[x-1]+backup[x]+backup[x+255]+backup[x+256]>>2;
-    }
-
     cameraDeinit();
-    return 1;
-}
 
+    surf.w = 7;
+    surf.h = 7;
+    
+    const int VRAM_STRIDE = 256;
+    const int Y_OFFSET = 32;
+    const int X_START = 32;   // (256-192)/2 para centrar
+    const int Y_START = 0;    // Ajusta según la cámara
+    
+    for(int y = 0; y < 128; y++) {
+        for(int x = 0; x < 128; x++) {
+            // Mapear píxel de salida a entrada (192x192)
+            int src_x = (x * 192) / 128;  // x * 1.5
+            int src_y = (y * 192) / 128;  // y * 1.5
+            
+            int vram_offset = (Y_START + Y_OFFSET + src_y) * VRAM_STRIDE + X_START + src_x;
+            int surf_offset = y * 128 + x;
+            
+            surface[surf_offset] = pixelsTopVRAM[vram_offset];
+        }
+    }
+    return 1;
+    #endif
+}
 int photoPreview(){
+    #ifdef DSiMode
     if(!prepareCamera())
         return -1;
     vramSetBankA(VRAM_A_MAIN_BG);
@@ -64,4 +75,5 @@ int photoPreview(){
     cameraStopTransfer();
     cameraDeinit();
     return 1;
+    #endif  
 }

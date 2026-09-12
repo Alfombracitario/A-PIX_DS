@@ -12,7 +12,9 @@ typedef enum {
     EFFECT_HEXPAND,
     EFFECT_TO16BPP,
     EFFECT_POSTERIZE,
-    EFFECT_CAMERA,//temporal tmb
+    #ifdef DSiMode
+    EFFECT_CAMERA,
+    #endif
     EFFECT_COUNT
 } EffectId;
 

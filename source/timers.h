@@ -4,8 +4,7 @@
 #include <nds.h>
 #include <time.h>
 #include "timers.h"
-
-#define DEBUG_CPU
+#include "formatsglobals.h"
 
 #ifdef DEBUG_CPU
 extern u32 timerAccum;

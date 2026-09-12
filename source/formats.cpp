@@ -1,5 +1,5 @@
 //gran parte de todo el código que está aquí (no todo) no fué hecho por mi, esto porque simplemente estoy dando soporte a formatos relativamente genéricos (todos menos .acs) y no quería gastar meses programando cada formato
-//por eso mismo, si alguien me ayudó con algún código lo dirá un comentario, si no entonces fué hecho por mi o directamente ChatGPT lol
+//por eso mismo, si alguien me ayudó con algún código lo dirá un comentario, si no entonces fué hecho por mi o directamente alguna IA lol
 //momento vibe coding lmfao
 
 /*
@@ -12,6 +12,7 @@
 #include <math.h>
 #include "formatsglobals.h"
 #include "formats.h"
+#include "animation.h"
 
 #define min(a,b) ((a)<(b)?(a):(b))
 #define max(a,b) ((a)>(b)?(a):(b))
@@ -1368,4 +1369,34 @@ int png_import(const char *path, u16 *surface, u16 *pal) {
 
     paletteSize = 256;
     return 0;
+}
+
+static int copyFile(const char *src, const char *dst) {
+    FILE *f_src = fopen(src, "rb");
+    FILE *f_dst = fopen(dst, "wb");
+    
+    if (!f_src || !f_dst) {
+        if (f_src) fclose(f_src);
+        if (f_dst) fclose(f_dst);
+        return -1;
+    }
+    
+    size_t n;
+    while ((n = fread(backup, 1, sizeof(backup), f_src)) > 0) {
+        fwrite(backup, 1, n, f_dst);
+    }
+    
+    int frames = ftell(f_src)/((surfaceSizeVRAM << 1) + 512);
+    fclose(f_src);
+    fclose(f_dst);
+    return frames;
+}
+void exportAnim(const char *path){
+    copyFile(ANIM_TEMP,path);
+}
+extern bool preview;
+void importAnim(const char *path){
+    if(!preview){
+        animation.frames = copyFile(path,ANIM_TEMP);
+    }
 }

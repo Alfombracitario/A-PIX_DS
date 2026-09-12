@@ -21,7 +21,7 @@ extern int imgFormat;
 extern int fileOffset;
 extern int resX;
 extern int resY;
-extern int paletteBpp;
+extern u8 paletteBpp;
 extern int palettePos;
 extern bool updateSettings;
 extern u16 palette[];

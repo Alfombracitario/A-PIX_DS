@@ -15,7 +15,6 @@ extern int  updatePal(int increment, int *palettePos);
 extern void drawColorPalette();
 
 extern u16 onionSkin;
-extern int paletteBpp;
 extern int palettePos;
 extern u16 pixelsTop;
 extern u16 *pixelsTopVRAM;
@@ -184,7 +183,7 @@ void playAnimation()//solo hace un preview de la animación
             loadAnimFrame(stack);//cargamos antes para tener tiempo
         }
         for (int i = 0; i < animation.speed; i++)
-        {
+        {//mini loop interno; esperar los frames
             scanKeys();
             if (keysDown()){
                 animation.isPlaying = false;

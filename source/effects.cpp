@@ -26,7 +26,9 @@ EffectEntry effects[EFFECT_COUNT] = {
     { "Expand height"  ,    true,  0,   0,  0   },
     { "Convert to 16bpp",   true,  0,   0,  0   },
     { "Reduce colors"  ,    false, 2,   255,255 },
-    { "Camera dev test",    true,  0,   0,  0   },
+    #ifdef DSiMode
+    { "DSi camera",         true,  0,   0,  0   },
+    #endif
 };
 
 u16* orig;
@@ -280,11 +282,12 @@ bool applyEffect(EffectId id)
             posterize(param);
             break;
         }
-
+        #ifdef DSiMode
         case EFFECT_CAMERA: {
             paletteBpp = 16;
             photoPreview();
         }
+        #endif
         default:
             return false;
     }

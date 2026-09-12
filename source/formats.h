@@ -42,6 +42,8 @@ int  loadBMP_4bpp(const char* filename, uint16_t* pal, uint16_t* surface);
 int png_import(const char *path, u16 *surf, u16 *pal);
 int png_export(const char *path, const u16 *surf, const u16 *pal);
 
+void importAnim(const char *path);
+void exportAnim(const char *path);
 //macros
 #define formatACS       0
 #define formatPNG       1
@@ -54,14 +56,15 @@ int png_export(const char *path, const u16 *surf, const u16 *pal);
 #define formatSNES4     8
 #define formatSNES8     9
 #define formatGBA4      10
-#define formatPAL       11
-#define formatPal1555   12
-#define formatACSnopal  13
-#define formatACSpal    14
+#define formatAnim      11
+#define formatPAL       12
+#define formatPal1555   13
+#define formatACSnopal  14
+#define formatACSpal    15
 
-#define MaxFormats 15
+#define MaxFormats 16
 #define extraSaveFormats 2
-const char texts[MaxFormats][16] = {
+const char texts[MaxFormats][16]={
     ".acs",
     ".png",
     ".pcx",
@@ -73,6 +76,7 @@ const char texts[MaxFormats][16] = {
     ".bin[SNES 4bpp]",
     ".bin[SNES 8bpp]",
     ".bin[GBA 4bpp]",
+    ".anim unfished",
     ".pal[YY-CHR]",
     ".pal[1555]",
     ".acs[only img]",
@@ -90,6 +94,7 @@ const char formats[MaxFormats][8] = {
     ".bin",
     ".bin",
     ".bin",
+    ".anim",
     ".pal",
     ".pal",
     ".acs",

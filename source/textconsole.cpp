@@ -20,7 +20,7 @@ extern char fname[];
 extern char format[];
 extern char currentFilePath[];
 extern bool mayus;
-
+extern bool preview;
 bool updateSettings;//para settings
 
 //input
@@ -205,17 +205,17 @@ static bool handleFileConsole()
     if (holdTimer > 10)
     {
         swiWaitForVBlank();
-        if (kHeld & KEY_RIGHT) { selectorA++; redraw = true; consoleClear(); }
-        if (kHeld & KEY_LEFT)  { selectorA--; redraw = true; consoleClear(); }
-        if (kHeld & KEY_UP   && selector > 0)             { selector--; redraw = true; consoleClear(); }
-        if (kHeld & KEY_DOWN && selector < fileCount - 1) { selector++; redraw = true; consoleClear(); }
+        if (kHeld & KEY_RIGHT) { selectorA++;preview = true; redraw = true; consoleClear(); }
+        if (kHeld & KEY_LEFT)  { selectorA--;preview = true; redraw = true; consoleClear(); }
+        if (kHeld & KEY_UP   && selector > 0)             { selector--;preview = true; redraw = true; consoleClear(); }
+        if (kHeld & KEY_DOWN && selector < fileCount - 1) { selector++;preview = true; redraw = true; consoleClear(); }
     }
     else
     {
-        if (kDown & KEY_RIGHT) { selectorA++; redraw = true; consoleClear(); }
-        if (kDown & KEY_LEFT)  { selectorA--; redraw = true; consoleClear(); }
-        if (kDown & KEY_UP   && selector > 0)             { selector--; redraw = true; consoleClear(); }
-        if (kDown & KEY_DOWN && selector < fileCount - 1) { selector++; redraw = true; consoleClear(); }
+        if (kDown & KEY_RIGHT) { selectorA++; redraw = true;preview = true; consoleClear(); }
+        if (kDown & KEY_LEFT)  { selectorA--; redraw = true;preview = true; consoleClear(); }
+        if (kDown & KEY_UP   && selector > 0)             { selector--;preview = true; redraw = true; consoleClear(); }
+        if (kDown & KEY_DOWN && selector < fileCount - 1) { selector++;preview = true; redraw = true; consoleClear(); }
     }
 
 
