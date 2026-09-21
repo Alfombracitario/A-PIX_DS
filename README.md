@@ -50,8 +50,6 @@ If you want to run this app I recommend you to use TwilightMenu++ or unlaunch.
 
 | Button | Action |
 |--------|--------|
-| **A** | Zoom in |
-| **B** | Zoom out |
 | **Y** / **R** | Toggle grid |
 | **START** | Return to bitmap mode and **confirm changes** |
 | **SELECT** | Return to bitmap mode and **cancel changes** |
