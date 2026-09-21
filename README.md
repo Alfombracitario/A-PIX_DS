@@ -58,7 +58,7 @@ If you want to run this app I recommend you to use TwilightMenu++ or unlaunch.
 
 | Button | Action |
 |--------|--------|
-| **L** / **X** + D-Pad | Scroll canvas |
+| **L** / **X** + D-Pad | Scroll canvas in chunks |
 | **D-Pad** | Change active palette entry |
 
 ### Palette Editor
