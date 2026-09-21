@@ -147,6 +147,16 @@ Each frame must currently be exported individually,`.gif` export is not yet avai
 - **warg0scuro**
 - **kirbosh**
 
+
+## Use of AI
+
+Claude was used as a coding assistant for:
+- Debugging utilities (not in the final build)
+- Some file formats
+
+The architecture, core logic, and design decisions are my own.
+AI-generated code was reviewed and tested before being merged.
+
 Your suggestions is what makes this app better!
 
 **Special thanks to:**  
