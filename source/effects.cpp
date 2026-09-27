@@ -24,10 +24,15 @@ EffectEntry effects[EFFECT_COUNT] = {
     { "Crop height"    ,    true,  0,   0,  0   },
     { "Expand width"   ,    true,  0,   0,  0   },
     { "Expand height"  ,    true,  0,   0,  0   },
+    { "Convert to 1bpp",    true,  0,   0,  0   },
+    { "Convert to 2bpp",    true,  0,   0,  0   },
+    { "Convert to 4bpp",    true,  0,   0,  0   },
+    { "Convert to 8bpp",    true,  0,   0,  0   },
     { "Convert to 16bpp",   true,  0,   0,  0   },
     { "Reduce colors"  ,    false, 2,   255,255 },
     #ifdef DSiMode
-    { "DSi camera",         true,  0,   0,  0   },
+    { "Take photo",         true,  0,   0,  0   },
+    { "Record video",       true,  0,   0,  0   }
     #endif
 };
 
@@ -261,6 +266,72 @@ bool applyEffect(EffectId id)
             }
             pasteFromStackToSurface();
             break;
+        }   
+        case EFFECT_TO1BPP: {
+            if(paletteBpp == 1){
+                break;
+            }
+            if(paletteBpp < 16){
+                indexedToDirect();
+                pixels = surface;
+                orig = backup + effectBackupPos;
+                count = surfaceSize;
+            }
+            posterize(2);
+            paletteBpp = 1;
+            break;
+        }
+
+        case EFFECT_TO2BPP: {
+            if(paletteBpp == 2){
+                break;
+            }
+            else if(paletteBpp == 1){
+                paletteBpp = 2;
+                break;
+            }
+            else if(paletteBpp < 16){
+                indexedToDirect();
+                pixels = surface;
+                orig = backup + effectBackupPos;
+                count = surfaceSize;
+            }
+            posterize(4);
+            paletteBpp = 2;
+            break;
+        }
+
+        case EFFECT_TO4BPP: {
+            if(paletteBpp == 4){
+                break;
+            }
+            else if(paletteBpp < 4){
+                paletteBpp = 4;
+                break;
+            }
+            else if(paletteBpp < 16){
+                indexedToDirect();
+                pixels = surface;
+                orig = backup + effectBackupPos;
+                count = surfaceSize;
+            }
+            posterize(16);
+            paletteBpp = 4;
+            break;
+        }
+
+        case EFFECT_TO8BPP: {
+            if(paletteBpp == 8){
+                break;
+            }
+            else if(paletteBpp < 8){
+                paletteBpp = 8;
+                break;
+            }
+            //si es 16bpp
+            posterize(256);
+            paletteBpp = 8;
+            break;
         }
 
         case EFFECT_TO16BPP: {
@@ -272,7 +343,6 @@ bool applyEffect(EffectId id)
         }
 
         case EFFECT_POSTERIZE: {
-            
             if(paletteBpp < 16){
                 indexedToDirect();
                 pixels = surface;
@@ -287,6 +357,12 @@ bool applyEffect(EffectId id)
             paletteBpp = 16;
             photoPreview();
         }
+        break;
+        case EFFECT_VIDEO: {
+            paletteBpp = 16;
+            videoRecord();
+        }
+        break;
         #endif
         default:
             return false;

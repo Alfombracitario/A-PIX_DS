@@ -58,14 +58,8 @@ void saveFile(int format, char* path, u16* palette, u16* surface){
         default:
             return;
         break;
-        case formatDirectBMP:
+        case formatBMP:
             saveBMP(path, palette, surface);
-        break;
-        case format8bppBMP:
-            saveBMP_indexed(path, palette, surface);
-        break;
-        case format4bppBMP:
-            saveBMP_4bpp(path, palette, surface);
         break;
         case formatNES:
             exportNES(path, surface, 1<<surf.h);
@@ -106,6 +100,9 @@ void saveFile(int format, char* path, u16* palette, u16* surface){
         case formatAnim:
             exportAnim(path);
         break;
+        case formatGIF:
+            exportGIF(path);
+        break;
     }
 }
 
@@ -115,17 +112,9 @@ void loadFile(int format, char* path, u16* palette, u16* surface){
         default:
             printf("\nNot supported!");
         break;
-        case formatDirectBMP:
-            loadBMP_direct(path, surface);
-            paletteBpp = 16; usesPages = false;
-        break;
-        case format8bppBMP:
-            loadBMP_indexed(path, palette, surface);
-            paletteBpp = 8; usesPages = false;
-        break;
-        case format4bppBMP:
-            loadBMP_4bpp(path, palette, surface);
-            paletteBpp = 4; usesPages = false;
+        case formatBMP:
+            loadBMP(path, palette, surface);
+            usesPages = false;
         break;
         case formatNES:
             paletteBpp = 2; nesMode = true; usesPages = true;
@@ -168,6 +157,9 @@ void loadFile(int format, char* path, u16* palette, u16* surface){
         break;
         case formatAnim:
             importAnim(path);
+        break;
+        case formatGIF:
+            importGIF(path);
         break;
     }
 }
@@ -345,7 +337,7 @@ int compare_dirent(const void* a, const void* b) {
 }
 void listFiles() {
     if(!currentDir) return;
-
+    
     fileCount = 0;
     struct dirent* ent;
     rewinddir(currentDir);

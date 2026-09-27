@@ -2,9 +2,11 @@
 #include "formatsglobals.h"
 #include "timers.h"
 #include <unistd.h>
-
+#include "music.h"
 
 #define PALETTE_SIZE (256 * 2) // 512 bytes, fijo siempre
+
+bool audioSync;
 static FILE *animationFile = NULL;
 static int currentFramePos = -1;
 
@@ -161,7 +163,10 @@ void playAnimation()//solo hace un preview de la animación
 
     //antes de reproducir la animación debemos guardar el frame actual
     saveAnimFrame();
-
+    if(audioSync){
+        wavStop();
+        wavContinue();
+    }
     int pixSize = 2 << surf.w << surf.h;
     int sw = 1 << surf.w;
     int sh = 1 << surf.h;
@@ -176,6 +181,7 @@ void playAnimation()//solo hace un preview de la animación
         return;
     while(animation.isPlaying)
     {
+        wavStreamUpdate();
         animation.pos++;
         if (animation.pos > animation.frames)
             animation.pos = 0;

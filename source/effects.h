@@ -10,10 +10,15 @@ typedef enum {
     EFFECT_HCROP,
     EFFECT_WEXPAND,
     EFFECT_HEXPAND,
+    EFFECT_TO1BPP,
+    EFFECT_TO2BPP,
+    EFFECT_TO4BPP,
+    EFFECT_TO8BPP,
     EFFECT_TO16BPP,
     EFFECT_POSTERIZE,
     #ifdef DSiMode
     EFFECT_CAMERA,
+    EFFECT_VIDEO,
     #endif
     EFFECT_COUNT
 } EffectId;
@@ -29,3 +34,4 @@ typedef struct {
 extern EffectEntry effects[EFFECT_COUNT];
 
 bool applyEffect(EffectId id);
+void posterize(int numColors);

@@ -1,6 +1,7 @@
 #include "textconsole.h"
 #include "files.h"
 #include "effects.h"
+#include "music.h"
 
 #include "GFXnewImageInput.h"
 #include "GFXconsoleInput.h"
@@ -176,7 +177,7 @@ static bool handleFileConsole()
             return true;
         }
     }
-    else if (currentConsoleMode == LOAD_file)// LOAD_file
+    else if (currentConsoleMode == LOAD_file)
     {
         formatsCount = MaxFormats-extraSaveFormats;
         if (kDown & KEY_START)
@@ -200,7 +201,20 @@ static bool handleFileConsole()
             return true;
         }
     }
+    else if (currentConsoleMode == LOAD_music)
+    {
+        formatsCount = musicFormats;
+        if (kDown & KEY_START)
+        {
+            buildCurrentFilePath();
+            clearTop();
+            initAudio();
+            wavPlay(currentFilePath);
 
+            bitmapMode();
+            return true;
+        }
+    }
     // Navegación con hold
     if (holdTimer > 10)
     {
@@ -218,12 +232,15 @@ static bool handleFileConsole()
         if (kDown & KEY_DOWN && selector < fileCount - 1) { selector++;preview = true; redraw = true; consoleClear(); }
     }
 
-
     if (selectorA >= formatsCount)    selectorA = 0;
     else if (selectorA < 0)         selectorA = formatsCount - 1;
 
-
-    strcpy(format, formats[selectorA]);
+    if(currentConsoleMode != LOAD_music){
+        strcpy(format, formats[selectorA]);
+    }
+    else{
+        strcpy(format, musFormats[selectorA]);
+    }
 
     // Teclado táctil
     if (kDown & KEY_TOUCH && touch.py > 112)
@@ -262,7 +279,12 @@ static bool handleFileConsole()
     if (redraw)
     {
         printf(fname);
-        printf(texts[selectorA]);
+        if(currentConsoleMode != LOAD_music){
+            printf(texts[selectorA]);
+        }else{
+            printf(musFormats[selectorA]);
+        }
+        
         printf("\n????????????????????????????????\n");
         listFiles();
         redraw = false;
@@ -375,6 +397,7 @@ bool runTextConsole()
     //preparar para cuando salgamos
     updated = true;
     accurate = true;
+    redraw = true;
     // limpiar input residual del frame que nos llamó
     scanKeys();
     kDown = 0;
@@ -383,6 +406,7 @@ bool runTextConsole()
     
     while (true)
     {
+        wavStreamUpdate();
         swiWaitForVBlank();
         scanKeys();
         kDown = keysDown();
@@ -400,6 +424,10 @@ bool runTextConsole()
             if (handleFileConsole()) { currentConsoleMode = MODE_NO; break; }
         }
         else if (currentConsoleMode == LOAD_file)
+        {
+            if (handleFileConsole()) { currentConsoleMode = MODE_NO; break; }
+        }
+        else if (currentConsoleMode == LOAD_music)
         {
             if (handleFileConsole()) { currentConsoleMode = MODE_NO; break; }
         }

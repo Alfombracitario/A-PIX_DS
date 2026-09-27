@@ -5,8 +5,9 @@
 #include "GFXintro.h"
 #include "GFXalfPresents.h"
 #include <maxmod9.h>
-#include "soundbank_bin.h"
 #include "soundbank.h"
+#include <filesystem.h>
+#include "acs.h"
 
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
@@ -172,12 +173,14 @@ void genGradient(){
 }
 void intro() {
     srand(time(NULL));
+    if (!nitroFSInit(NULL))
+        return;
     setBrightness(3, -16);
     swiWaitForVBlank();
     irqSet(IRQ_VBLANK, vblank_handler);//configurar HDMA
     irqEnable(IRQ_VBLANK);
 
-    mmInitDefaultMem((mm_addr)soundbank_bin);
+    mmInitDefault("nitro:/soundbank.bin");
     mmLoad(MOD_INTRO);
     mmStart(MOD_INTRO, MM_PLAY_ONCE);
 
@@ -202,8 +205,11 @@ void intro() {
 
     // --- Pantalla inferior ---
     videoSetModeSub(MODE_5_2D);
-    bgInitSub(3, BgType_Bmp16, BgSize_B16_128x128, 0, 0);
-    decompress(GFXintroBitmap, BG_GFX_SUB, LZ77Vram);
+    bgInitSub(3, BgType_Bmp8, BgSize_B8_128x128, 0, 0);
+    importACS("nitro:/intro.acs",stack,BG_PALETTE_SUB);
+    for(int i = 0; i<128*96;i++){
+        BG_GFX_SUB[i] = stack[i<<1]|(stack[(i<<1)+1]<<8);
+    }
     bgSetScale(7, 128, 128);
     bgUpdate();
     
@@ -299,14 +305,16 @@ void intro() {
         swiWaitForVBlank();//esperamos un frame
     }
     //al salir
-    oamClear(&oamMain, 0, 128);
     mmStop();
+    nitroFSExit();
+
+    oamClear(&oamMain, 0, 128);
+    
     oamUpdate(&oamMain);
     dmaStopSafe(0);
     dmaStopSafe(1);
     dmaStopSafe(2);
     irqSet(IRQ_VBLANK, NULL);
-    soundDisable();
     BG_PALETTE[0] = 0;
     vramSetBankA(VRAM_A_LCD);
     vramSetBankB(VRAM_B_LCD);

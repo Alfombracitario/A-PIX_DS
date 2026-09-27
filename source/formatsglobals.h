@@ -4,9 +4,8 @@
 #include "nds.h"
 
 //#define DEBUG_CPU
-#define DSiMode
+//#define DSiMode
 #define surfaceMaxExp 7
-
 
 #define surfaceSize (1<<surfaceMaxExp<<surfaceMaxExp)
 #define surfaceBytes (surfaceSize<<1)
@@ -26,7 +25,6 @@
 #define SURFACE_W 128
 #define SURFACE_H 128
 
-
 extern u16 surface[surfaceSize];
 extern u16 backup[BACKUP_SIZE];
 extern u16 palette[256];
@@ -34,6 +32,10 @@ extern u16 stack[surfaceSize];
 extern int paletteSize;
 extern u8 paletteBpp;
 extern u16 *pixelsTopVRAM;
+extern int paletteOffset;
+extern int palettePos;
+extern int stackYres;
+extern int stackXres;
 
 struct Surface {
     u8 w;    // surface width
@@ -47,5 +49,9 @@ struct Surface {
 };
 
 extern struct Surface surf;
+
+//cosas random
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 #endif

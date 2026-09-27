@@ -65,7 +65,9 @@ build/A-Pix/source/intro.cpp.o: source/intro.cpp \
  build/A-Pix/graphics/GFXintro.h build/A-Pix/graphics/GFXalfPresents.h \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/maxmod/include/maxmod9.h \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/maxmod/include/mm_types.h \
- build/A-Pix/maxmod/soundbank_bin.h build/A-Pix/maxmod/soundbank.h
+ build/A-Pix/maxmod/soundbank.h \
+ C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/filesystem.h \
+ source/acs.h source/formatsglobals.h
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds.h:
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/bios.h:
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/ndstypes.h:
@@ -133,5 +135,7 @@ build/A-Pix/graphics/GFXintro.h:
 build/A-Pix/graphics/GFXalfPresents.h:
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/maxmod/include/maxmod9.h:
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/maxmod/include/mm_types.h:
-build/A-Pix/maxmod/soundbank_bin.h:
 build/A-Pix/maxmod/soundbank.h:
+C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/filesystem.h:
+source/acs.h:
+source/formatsglobals.h:

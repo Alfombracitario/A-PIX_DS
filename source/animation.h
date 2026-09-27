@@ -24,5 +24,5 @@ struct Animation
 };
 
 extern Animation animation;
-
+extern bool audioSync;
 #endif

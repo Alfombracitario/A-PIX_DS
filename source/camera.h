@@ -2,3 +2,4 @@
 
 int photoPreview();
 int photoTake();
+int videoRecord();

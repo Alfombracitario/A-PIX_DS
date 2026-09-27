@@ -59,7 +59,7 @@ static inline int isEqual(const uint16_t* a, const uint16_t* b, int len){
 }
 
 //función auxiliar
-inline void readCommand7(u8 byte, int* pInd, u16* surface){
+static inline void readCommand7(u8 byte, int* pInd, u16* surface){
     //determinar cual es el tipo de comando contra el que estamos tratando
     switch((byte>>5) & 0b011){
         case ACSpattern:{
@@ -93,7 +93,7 @@ inline void readCommand7(u8 byte, int* pInd, u16* surface){
         break;}
     }
 }
-inline void readCommand8(u8 byte, int* pInd, u16* surface){
+static inline void readCommand8(u8 byte, int* pInd, u16* surface){
     switch(byte>>6){
         case ACSpattern:{//repeat pattern
             //CCP PPRRR
@@ -127,7 +127,8 @@ inline void readCommand8(u8 byte, int* pInd, u16* surface){
     }
 }
 
-void importACS(const char* path, u16* surface, u16* pal){
+void importACS(const char* path, u16* surface, u16* pal)
+{
     //este loader debe ser capaz de cargar todos los tipos de ACS que puedan entrar a esta app
 
     //usamos backup para leer el archivo en RAM

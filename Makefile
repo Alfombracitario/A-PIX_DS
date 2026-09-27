@@ -1,31 +1,22 @@
-# -------------------------------------------------
-# Ruta a BlocksDS
-# -------------------------------------------------
-BLOCKSDS ?= /opt/blocksds/core
 
-# -------------------------------------------------
-# Librerías
-# -------------------------------------------------
+BLOCKSDS	?= /opt/blocksds/core
+
 LIBS        := -lnds9 -lmm9
 LIBDIRS     := $(BLOCKSDS)/libs/maxmod
 
-# -------------------------------------------------
-# Información del ROM
-# -------------------------------------------------
 NAME            := A-Pix
 GAME_TITLE      := A-Pix DS
-GAME_SUBTITLE   := @Alfombracitario
-GAME_AUTHOR     := 0.6.3
-GAME_ICON 		:= icon.gif
+GAME_SUBTITLE   := 0.7
+GAME_AUTHOR     := Alfombracitario
+GAME_ICON 		:= icon.bmp
 
-# -------------------------------------------------
-# Carpetas del proyecto
-# -------------------------------------------------
 SOURCEDIRS      := source
 INCLUDEDIRS     := include
 GFXDIRS         := graphics
 AUDIODIRS       := audio
-# -------------------------------------------------
-# Makefile base BlocksDS
-# -------------------------------------------------
+
+NITROFSDIR	:= nitrofs
+
 include $(BLOCKSDS)/sys/default_makefiles/rom_arm9/Makefile
+
+

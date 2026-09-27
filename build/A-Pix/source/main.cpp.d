@@ -64,10 +64,13 @@ build/A-Pix/source/main.cpp.o: source/main.cpp \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/teak/tlf.h \
  build/A-Pix/graphics/font.h source/timers.h source/formatsglobals.h \
  source/textconsole.h source/files.h source/formats.h source/acs.h \
- source/png/lodepng.h \
+ source/png/lodepng.h source/gif/gif_lib.h \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/fat.h \
- source/avdslib.h source/intro.h source/animation.h \
- build/A-Pix/graphics/GFXinput.h build/A-Pix/graphics/GFXconsoleInput.h \
+ source/avdslib.h source/intro.h source/animation.h source/music.h \
+ C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/maxmod/include/maxmod9.h \
+ C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/maxmod/include/mm_types.h \
+ source/tools.h build/A-Pix/graphics/GFXinput.h \
+ build/A-Pix/graphics/GFXconsoleInput.h \
  build/A-Pix/graphics/GFXselector24.h \
  build/A-Pix/graphics/GFXselector16.h \
  build/A-Pix/graphics/GFXnewImageInput.h build/A-Pix/graphics/GFXmore.h \
@@ -146,10 +149,15 @@ source/files.h:
 source/formats.h:
 source/acs.h:
 source/png/lodepng.h:
+source/gif/gif_lib.h:
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/fat.h:
 source/avdslib.h:
 source/intro.h:
 source/animation.h:
+source/music.h:
+C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/maxmod/include/maxmod9.h:
+C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/maxmod/include/mm_types.h:
+source/tools.h:
 build/A-Pix/graphics/GFXinput.h:
 build/A-Pix/graphics/GFXconsoleInput.h:
 build/A-Pix/graphics/GFXselector24.h:
