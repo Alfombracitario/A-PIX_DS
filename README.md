@@ -50,8 +50,6 @@ If you want to run this app I recommend you to use TwilightMenu++ or unlaunch.
 
 | Button | Action |
 |--------|--------|
-| **A** | Zoom in |
-| **B** | Zoom out |
 | **Y** / **R** | Toggle grid |
 | **START** | Return to bitmap mode and **confirm changes** |
 | **SELECT** | Return to bitmap mode and **cancel changes** |
@@ -60,7 +58,7 @@ If you want to run this app I recommend you to use TwilightMenu++ or unlaunch.
 
 | Button | Action |
 |--------|--------|
-| **L** / **X** + D-Pad | Scroll canvas |
+| **L** / **X** + D-Pad | Scroll canvas in chunks |
 | **D-Pad** | Change active palette entry |
 
 ### Palette Editor
@@ -155,3 +153,14 @@ Your suggestions is what makes this app better!
 ---
 
 *Want to see your name here? Test the app and share your feedback!*
+
+---
+
+## Use of AI
+
+Claude was used as a coding assistant for:
+- Debugging utilities (not in the final build)
+- Some file formats
+
+The architecture, core logic, and design decisions are my own.
+AI-generated code was reviewed and tested before being merged.
