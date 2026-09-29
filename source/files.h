@@ -33,5 +33,7 @@ int  enterFolder(int);
 int  goBack();
 void buildCurrentFilePath();
 void previewFile(const char*);
+bool fsGetDevice(char *device, size_t size);
+bool fsRestore(const char *device, char *path);
 
 #endif

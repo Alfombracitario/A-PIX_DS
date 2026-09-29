@@ -19,61 +19,46 @@
 
 #define min(a,b) ((a)<(b)?(a):(b))
 #define max(a,b) ((a)>(b)?(a):(b))
+#define SCREEN_H 192
+
+extern void initGradient();
 
 extern int fileOffset;
 extern u32 kDown;
+extern u16 gradientTable[SCREEN_H];
+extern bool preview;
 
 //funciones auxiliares para formatos retro
-FILE* openFileOffset(const char* path, int* dataSize){
+FILE* openFileOffset(const char* path, int* dataSize, bool forWrite = false){
     const int pageSize = paletteBpp<<11;
     const int bytesPerRow = (paletteBpp<<7)>>3;
 
     FILE* f = fopen(path, "r+b");
+    if (!f && forWrite) f = fopen(path, "w+b");   // crear si no existe
     if (!f) {
         printf("File not found %s\n", path);
         return NULL;
     }
 
-    // Tamaño total del archivo
     fseek(f, 0, SEEK_END);
     int fileSize = ftell(f);
     fseek(f, 0, SEEK_SET);
 
-
-    // offset circular
     int maxOffset = fileSize - pageSize;
     if (maxOffset < 0) maxOffset = 0;
-
-    if (fileOffset < 0) {
-        fileOffset = maxOffset;
-    }
-    else if (fileOffset > maxOffset) {
-        fileOffset = 0;
-    }
-
+    if (fileOffset < 0) fileOffset = maxOffset;
+    else if (fileOffset > maxOffset) fileOffset = 0;
 
     int remainingSize = fileSize - fileOffset;
+    *dataSize = remainingSize > pageSize ? pageSize : remainingSize;
 
-    // Tamaño real a leer
-    *dataSize = remainingSize;
-    if (*dataSize > pageSize) {
-        *dataSize = pageSize;
+    if (!forWrite) {   // solo al importar se redimensiona el canvas
+        int rowsNeeded = (remainingSize + bytesPerRow - 1) / bytesPerRow;
+        surf.h = 0;
+        int height = 1;
+        while (height < rowsNeeded && surf.h < 7) { height <<= 1; surf.h++; }
+        surf.w = 7;
     }
-
-    // Filas necesarias (no potencia aún)
-    int rowsNeeded = remainingSize / bytesPerRow;
-    if (remainingSize % bytesPerRow != 0) rowsNeeded++;
-
-    // Calcular exponente mínimo tal que (1<<surf.h) >= rowsNeeded
-    surf.h = 0;
-    int height = 1;
-    while (height < rowsNeeded && surf.h < 7) {
-        height <<= 1;
-        surf.h++;
-    }
-
-    surf.h = min(surf.h, 7);
-    surf.w = 7;
 
     fseek(f, fileOffset, SEEK_SET);
     return f;
@@ -129,7 +114,7 @@ int importNES(const char* path, u16* surface) {
 
 int exportNES(const char* path, u16* surface, int height) {
     int dataSize = 0;
-    FILE* f = openFileOffset(path,&dataSize);
+    FILE* f = openFileOffset(path,&dataSize,true);
     if(f == NULL){return -1;}
 
 
@@ -204,7 +189,7 @@ int importGBC(const char* path, u16* surface) {
 
 int exportGBC(const char* path, u16* surface, int height) {
     int dataSize = 0;
-    FILE* f = openFileOffset(path,&dataSize);
+    FILE* f = openFileOffset(path,&dataSize,true);
     if(f == NULL){return -1;}
 
 
@@ -298,7 +283,7 @@ int exportSNES(const char* path, u16* surface, int height) {
     if (height % 8 != 0) return -1;
 
     int dataSize = 0;
-    FILE* f = openFileOffset(path,&dataSize);
+    FILE* f = openFileOffset(path,&dataSize,true);
     if(f == NULL){return -1;}
 
 
@@ -383,7 +368,7 @@ int importGBA(const char* path, u16* surface) {
 
 int exportGBA(const char* path, u16* surface, int height) {
     int dataSize = 0;
-    FILE* f = openFileOffset(path,&dataSize);
+    FILE* f = openFileOffset(path,&dataSize,true);
     if(f == NULL){return -1;}
 
     int tilesPerRow = 128 / 8;
@@ -1302,13 +1287,16 @@ static int copyFile(const char *src, const char *dst) {
 
 //Este código aún no ha sido eliminado, pero no le queda mucho para que actualice ACS
 void exportAnim(const char *path){
+    saveAnimFrame();
     copyFile(ANIM_TEMP,path);
 }
-extern bool preview;
+
 void importAnim(const char *path){
     if(!preview){
         animation.frames = copyFile(path,ANIM_TEMP);
+        loadAnimFrame(surface);
     }
+    
 }
 
 static inline u16 rgb888_to_abgr1555(const GifColorType *c)
@@ -1326,6 +1314,7 @@ static inline void abgr1555ToGifColor(u16 c, GifColorType *out)
 }
 int importGIF(const char *filename)
 {
+    saveAnimFrame();
     if(preview){
         return -1;
     }
@@ -1347,16 +1336,11 @@ int importGIF(const char *filename)
 
     const int frameCount = gif->ImageCount;
 
-    /*
-     * Un GIF de un solo frame NO es una animación.
-     */
     if (frameCount <= 1) {
 
         animation.frames = 0;
 
-        /*
-         * Componer el único frame directamente en surface.
-         */
+
         memset(surface, 0, pixels * sizeof(u16));
 
         SavedImage *img = &gif->SavedImages[0];
@@ -1419,7 +1403,7 @@ int importGIF(const char *filename)
         return 1;
     }
 
-    animation.frames = frameCount;
+    animation.frames = frameCount-1;
 
     FILE *f = fopen(ANIM_TEMP, "wb");
 
@@ -1549,7 +1533,7 @@ int importGIF(const char *filename)
     surf.h = log2(surf.fh);
 
     animation.pos = 0;
-    loadAnimFrame(0);
+    loadAnimFrame(surface);
     fclose(f);
 
     DGifCloseFile(gif, &error);
@@ -1559,185 +1543,120 @@ int importGIF(const char *filename)
 
 int exportGIF(const char *filename)
 {
-    int error;
-
-    GifFileType *gif = EGifOpenFileName(filename, false, &error);
-
-    if (!gif)
+    if (animation.frames == 0) {
         return 0;
+    }
+
+    animation.pos = 0;
+
+    int error;
+    GifFileType *gif = EGifOpenFileName(filename, false, &error);
+    if (!gif) {
+        return 0;
+    }
 
     const int width  = 1 << surf.w;
     const int height = 1 << surf.h;
-    const int pixels = width * height;
 
-    const int frameCount =
-        animation.frames > 0 ? animation.frames : 1;
-
-    ColorMapObject *cmap = GifMakeMapObject(256, NULL);
-
-    if (!cmap) {
+    // Paleta inicial para el screen descriptor (del primer frame)
+    ColorMapObject *initialCmap = GifMakeMapObject(256, NULL);
+    if (!initialCmap) {
         EGifCloseFile(gif, &error);
         return 0;
     }
 
     EGifSetGifVersion(gif, true);
 
-    FILE *f = NULL;
-
-    /*
-     * Si hay animación, los frames están en ANIM_TEMP.
-     * Si no, usamos directamente surface + palette.
-     */
-    if (animation.frames > 0) {
-
-        f = fopen(ANIM_TEMP, "rb");
-
-        if (!f) {
-            GifFreeMapObject(cmap);
-            EGifCloseFile(gif, &error);
-            return 0;
-        }
+    // Cargar primer frame para paleta inicial
+    loadAnimFrame(surface);
+    if (paletteBpp > 8) {
+        posterize(255);
     }
 
-    /*
-     * GIF necesita una paleta.
-     *
-     * Por ahora dejamos fuera el caso 16bpp.
-     */
-    if (paletteBpp == 16){
-        printf("You can't export this file:\nGif uses indexed images!");
-        if (f)
-            fclose(f);
-
-        GifFreeMapObject(cmap);
-        EGifCloseFile(gif, &error);
-
-        return 0;
+    for (int i = 0; i < 256; i++) {
+        abgr1555ToGifColor(palette[i], &initialCmap->Colors[i]);
     }
 
-    /*
-     * La imagen ya está indexada.
-     *
-     * Construimos la paleta GIF a partir de palette.
-     */
-    for (int i = 0; i < 256; i++)
-        abgr1555ToGifColor(
-            palette[i],
-            &cmap->Colors[i]
-        );
-
-    if (EGifPutScreenDesc(
-            gif,
-            width,
-            height,
-            8,
-            0,
-            cmap) == GIF_ERROR) {
-
-        if (f)
-            fclose(f);
-
-        GifFreeMapObject(cmap);
+    if (EGifPutScreenDesc(gif, width, height, 8, 0, initialCmap) == GIF_ERROR) {
+        GifFreeMapObject(initialCmap);
         EGifCloseFile(gif, &error);
-
         return 0;
     }
 
     GifPixelType *line = (GifPixelType *)backup;
 
-    for (int frame = 0; frame < frameCount; frame++) {
+    #define FRAC_BITS 8
+    const u32 step = (192u << FRAC_BITS) / animation.frames;
+    u8 painted = 0;
+    u32 acc;
+    // Escribir todos los frames con sus propias paletas
+    for (int frame = 0; frame < animation.frames; frame++) {
+        //mostrar barra de progreso con el fondo porque se puede
+        
+        acc += step;
+        u32 toPaint = acc >> FRAC_BITS;
+        acc &= (1u << FRAC_BITS) - 1;
 
-        /*
-         * Si hay animación, cargar el siguiente frame
-         * desde ANIM_TEMP.
-         *
-         * Si no hay animación, surface y palette ya
-         * contienen los datos correctos y no se toca nada.
-         */
-        if (animation.frames > 0) {
-
-            if (fread(
-                    surface,
-                    sizeof(u16),
-                    pixels,
-                    f) != (size_t)pixels) {
-
-                fclose(f);
-                GifFreeMapObject(cmap);
-                EGifCloseFile(gif, &error);
-
-                return 0;
-            }
-
-            if (fread(
-                    palette,
-                    sizeof(u16),
-                    256,
-                    f) != 256) {
-
-                fclose(f);
-                GifFreeMapObject(cmap);
-                EGifCloseFile(gif, &error);
-
-                return 0;
-            }
-
-            //Cada frame tiene su propia paleta.
-            for (int i = 0; i < 256; i++)
-                abgr1555ToGifColor(
-                    palette[i],
-                    &cmap->Colors[i]
-                );
+        for(int i = 0; i<toPaint;i++){
+            gradientTable[painted++] = 33158;
         }
 
-        if (EGifPutImageDesc(
-                gif,
-                0,
-                0,
-                width,
-                height,
-                false,
-                cmap) == GIF_ERROR) {
+        if (frame > 0) {
+            loadAnimFrame(surface);
+            if (paletteBpp > 8) {
+                posterize(255);
+            }
+        }
 
-            if (f)
-                fclose(f);
-
-            GifFreeMapObject(cmap);
+        // Crear paleta LOCAL para este frame
+        ColorMapObject *frameCmap = GifMakeMapObject(256, NULL);
+        if (!frameCmap) {
+            GifFreeMapObject(initialCmap);
             EGifCloseFile(gif, &error);
-
             return 0;
         }
 
-        for (int y = 0; y < height; y++) {
+        // Llenar con la paleta del frame actual
+        for (int i = 0; i < 256; i++) {
+            abgr1555ToGifColor(palette[i], &frameCmap->Colors[i]);
+        }
 
+        // Descriptor de imagen con paleta de este frame
+        if (EGifPutImageDesc(gif, 0, 0, width, height, false, frameCmap) == GIF_ERROR) {
+            GifFreeMapObject(frameCmap);
+            GifFreeMapObject(initialCmap);
+            EGifCloseFile(gif, &error);
+            return 0;
+        }
+
+        // Escribir todas las filas
+        for (int y = 0; y < height; y++) {
             const u16 *src = surface + y * width;
 
-            for (int x = 0; x < width; x++)
+            for (int x = 0; x < width; x++) {
                 line[x] = (GifPixelType)src[x];
+            }
 
-            if (EGifPutLine(
-                    gif,
-                    line,
-                    width) == GIF_ERROR) {
-
-                if (f)
-                    fclose(f);
-
-                GifFreeMapObject(cmap);
+            if (EGifPutLine(gif, line, width) == GIF_ERROR) {
+                GifFreeMapObject(frameCmap);
+                GifFreeMapObject(initialCmap);
                 EGifCloseFile(gif, &error);
-
                 return 0;
             }
         }
+
+        GifFreeMapObject(frameCmap);
+        animation.pos++;
     }
 
-    if (f)
-        fclose(f);
+    GifFreeMapObject(initialCmap);
 
-    GifFreeMapObject(cmap);
-
-    if (EGifCloseFile(gif, &error) == GIF_ERROR)
+    if (EGifCloseFile(gif, &error) == GIF_ERROR) {
         return 0;
-
+    }
+    for(int i = 0; i < SCREEN_H; i++){
+        gradientTable[i] = 0;
+    }
+    initGradient();
     return 1;
 }

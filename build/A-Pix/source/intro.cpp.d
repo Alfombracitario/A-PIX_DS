@@ -62,7 +62,7 @@ build/A-Pix/source/intro.cpp.o: source/intro.cpp \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/teak/dsp.h \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/teak/fifo.h \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/teak/tlf.h \
- build/A-Pix/graphics/GFXintro.h build/A-Pix/graphics/GFXalfPresents.h \
+ build/A-Pix/graphics/GFXalfPresents.h \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/maxmod/include/maxmod9.h \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/maxmod/include/mm_types.h \
  build/A-Pix/maxmod/soundbank.h \
@@ -131,7 +131,6 @@ C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/pe
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/teak/dsp.h:
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/teak/fifo.h:
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/teak/tlf.h:
-build/A-Pix/graphics/GFXintro.h:
 build/A-Pix/graphics/GFXalfPresents.h:
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/maxmod/include/maxmod9.h:
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/maxmod/include/mm_types.h:

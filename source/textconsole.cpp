@@ -232,6 +232,10 @@ static bool handleFileConsole()
         if (kDown & KEY_DOWN && selector < fileCount - 1) { selector++;preview = true; redraw = true; consoleClear(); }
     }
 
+    if(selectorA > formatsCount-extraSaveFormats){
+        //no existe una función para abrir estos archivos: crash
+        preview = false;
+    }
     if (selectorA >= formatsCount)    selectorA = 0;
     else if (selectorA < 0)         selectorA = formatsCount - 1;
 

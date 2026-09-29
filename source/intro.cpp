@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <math.h>
 #include <time.h>
-#include "GFXintro.h"
 #include "GFXalfPresents.h"
 #include <maxmod9.h>
 #include "soundbank.h"
@@ -153,7 +152,6 @@ void updateStars(int i) {
 }
 
 void genGradient(){
-    isGreen = (rand() % 50  == 0) ? 5 : 0;//Easter egg!
     static int frame = 0;
     if(frame > 31) {return;}
     int maxR = MIN(frame,30)>>1;
@@ -173,6 +171,7 @@ void genGradient(){
 }
 void intro() {
     srand(time(NULL));
+    isGreen = (rand() % 50  == 0) ? 5 : 0;//Easter egg!
     if (!nitroFSInit(NULL))
         return;
     setBrightness(3, -16);

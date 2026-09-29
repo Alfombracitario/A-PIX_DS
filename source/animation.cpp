@@ -7,6 +7,7 @@
 #define PALETTE_SIZE (256 * 2) // 512 bytes, fijo siempre
 
 bool audioSync;
+extern bool imgChanges;
 static FILE *animationFile = NULL;
 static int currentFramePos = -1;
 
@@ -71,14 +72,16 @@ void saveAnimFrame()
     int blkSize = pixSize + PALETTE_SIZE;
 
     fseek(f, (long)animation.pos * blkSize, SEEK_SET);
-    fwrite(surface, 1, pixSize, f);      // píxeles
-    fwrite(palette, 1, PALETTE_SIZE, f); // paleta del frame
+    fwrite(surface, 1, pixSize, f);     // píxeles
+    fwrite(palette, 1, PALETTE_SIZE, f);// paleta del frame
     fclose(f);
 }
 
 void nextAnimFrame()
 {
-    saveAnimFrame();
+    if(imgChanges){
+        saveAnimFrame();
+    }
     if (animation.pos >= animation.frames)
     {
         animation.pos = 0;
@@ -92,6 +95,7 @@ void nextAnimFrame()
     updatePal(0, &palettePos);
     drawSurfaceMain();
     accurate = true;
+    imgChanges = false;
 }
 
 void prevAnimFrame(){

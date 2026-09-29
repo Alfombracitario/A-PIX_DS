@@ -4,7 +4,7 @@
 #include "nds.h"
 
 //#define DEBUG_CPU
-//#define DSiMode
+#define DSiMode
 #define surfaceMaxExp 7
 
 #define surfaceSize (1<<surfaceMaxExp<<surfaceMaxExp)

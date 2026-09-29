@@ -23,6 +23,7 @@
 
 #include <font.h>
 
+#include <filesystem.h>
 #include "timers.h"
 #include "textconsole.h"
 #include "files.h"
@@ -32,18 +33,11 @@
 #include "formatsglobals.h"
 #include "music.h"
 #include "tools.h"
+#include "acs.h"
 
 #include "GFXinput.h"
 #include "GFXconsoleInput.h"
-#include "GFXselector24.h"
-#include "GFXselector16.h"
 #include "GFXnewImageInput.h"
-#include "GFXmore.h"
-#include "GFXbrushSettings.h"
-#include "GFXselector8.h"
-#include "GFXrgbSliders.h"
-#include "GFXselector5.h"
-#include "GFXrgbSliderSel.h"
 
 // Macros
 #define SCREEN_W 256
@@ -139,6 +133,8 @@ bool hasClipboard = false;
 bool nesMode = false;
 bool usesPages = false;
 bool moveCanvas = false;
+bool repeatCanvas = false;
+bool imgChanges = false;
 
 u8 DTCM_DATA palEdit[3];
 
@@ -359,7 +355,7 @@ void initGradient()
         gradientTable[i] = color;
         gradientTable[SCREEN_H - i] = color;
     }
-    //pequeña probabilidad de que el gradiente se invierta :>
+    //pequeña probabilidad de que el gradiente se invierta de colores :>
     irqSet(IRQ_VBLANK, vblank_handler); // configurar HDMA
 }
 ITCM_CODE bool brushPatternPass(int x, int y, BrushMode mode)
@@ -1088,7 +1084,6 @@ void setBrushSettingsSprites(bool on)
 }
 void setOamBG()
 {
-    u16 *gfxBG = oamAllocateGfx(&oamSub, SpriteSize_32x32, SpriteColorFormat_Bmp);
     const u16 bgCol[2] = {0xA908, 0xA082};
 
     for(int y = 0; y < 32; y++){
@@ -1146,6 +1141,7 @@ void updateIsActiveOam(){
 
 void setEditorSprites()
 {
+    static bool initSprites = true;
     // iniciamos el sprite para dibujar : )
     oamInit(&oamMain,SpriteMapping_Bmp_1D_128, false);
     oamInit(&oamSub, SpriteMapping_Bmp_1D_128, false);
@@ -1153,27 +1149,41 @@ void setEditorSprites()
     oamClear(&oamMain, 0, 128);
     oamClear(&oamSub, 0, 128);
 
-    gfxPalette = oamAllocateGfx(&oamSub, SpriteSize_64x64, SpriteColorFormat_Bmp);
-
-    gfx32 = oamAllocateGfx(&oamSub, SpriteSize_32x32, SpriteColorFormat_Bmp);
-    decompress(GFXselector24Bitmap, gfx32, LZ77Vram);
-    gfx16 = oamAllocateGfx(&oamSub, SpriteSize_16x16, SpriteColorFormat_Bmp);
-    decompress(GFXselector16Bitmap, gfx16, LZ77Vram);
-    gfx8 = oamAllocateGfx(&oamSub, SpriteSize_8x8, SpriteColorFormat_Bmp);
-    decompress(GFXselector8Bitmap, gfx8, LZ77Vram);
-    gfx5 = oamAllocateGfx(&oamSub, SpriteSize_8x8, SpriteColorFormat_Bmp);
-    decompress(GFXselector5Bitmap, gfx5, LZ77Vram);
-
-    gfxBrushSettings = oamAllocateGfx(&oamSub, SpriteSize_32x16, SpriteColorFormat_Bmp);
-    decompress(GFXbrushSettingsBitmap, gfxBrushSettings, LZ77Vram);
-    if(!nesMode){
+    if(initSprites == true){
+        char device[16];
+        fsGetDevice(device, sizeof(device));
         
+        
+        gfxPalette = oamAllocateGfx(&oamSub, SpriteSize_64x64, SpriteColorFormat_Bmp);
+        gfx32 = oamAllocateGfx(&oamSub, SpriteSize_32x32, SpriteColorFormat_Bmp);
+        gfx16 = oamAllocateGfx(&oamSub, SpriteSize_16x16, SpriteColorFormat_Bmp);
+        gfx8 = oamAllocateGfx(&oamSub, SpriteSize_8x8, SpriteColorFormat_Bmp);
+        gfx5 = oamAllocateGfx(&oamSub, SpriteSize_8x8, SpriteColorFormat_Bmp);
+        gfxBrushSettings = oamAllocateGfx(&oamSub, SpriteSize_32x16, SpriteColorFormat_Bmp);
         gfxRGBsliders = oamAllocateGfx(&oamSub, SpriteSize_64x32, SpriteColorFormat_Bmp);
-        decompress(GFXrgbSlidersBitmap, gfxRGBsliders, LZ77Vram);
+        gfxRgbSliderSel = oamAllocateGfx(&oamSub, SpriteSize_8x8, SpriteColorFormat_Bmp);
+        gfxGrid = oamAllocateGfx(&oamSub, SpriteSize_64x64, SpriteColorFormat_Bmp);
+        dmaFillWords(0, gfxGrid, 64 * 64 * 2);
+        gfxSelectedZone = oamAllocateGfx(&oamMain, SpriteSize_64x64, SpriteColorFormat_Bmp);
+        gfxBG = oamAllocateGfx(&oamSub, SpriteSize_32x32, SpriteColorFormat_Bmp);
+        if (!nitroFSInit(NULL))
+            return;//ojalá que no falle
+
+        importACS16("nitro:/selector24.acs",gfx32,stack);
+        importACS16("nitro:/selector16.acs",gfx16,stack);
+        importACS16("nitro:/selector8.acs",gfx8,stack);
+        importACS16("nitro:/selector5.acs",gfx5,stack);
+        importACS16("nitro:/brushSettings.acs",gfxBrushSettings,stack);
+        importACS16("nitro:/rgbSliders.acs",gfxRGBsliders,stack);
+        importACS16("nitro:/rgbSliderSel.acs",gfxRgbSliderSel,stack);
+        importACS16("nitro:/rgbSliderSel.acs",gfxRgbSliderSel,stack);
+        
+        nitroFSExit();
+        fsRestore(device,path);
         
     }
-    gfxRgbSliderSel = oamAllocateGfx(&oamSub, SpriteSize_8x8, SpriteColorFormat_Bmp);
-    decompress(GFXrgbSliderSelBitmap, gfxRgbSliderSel, LZ77Vram);
+    updatePal(0,&palettePos);
+    initSprites = false;
 
     oamSet(&oamSub, paletteOamId,
            192, 64,
@@ -1222,9 +1232,6 @@ void setEditorSprites()
 
     palettePos = 0;
     paletteOffset = 0;
-    gfxGrid = oamAllocateGfx(&oamSub, SpriteSize_64x64, SpriteColorFormat_Bmp);
-    dmaFillWords(0, gfxGrid, 64 * 64 * 2);
-    gfxSelectedZone = oamAllocateGfx(&oamMain, SpriteSize_64x64, SpriteColorFormat_Bmp);
     
     for(int i = gridOamId; i < 4; i++)
     {
@@ -1348,6 +1355,7 @@ void initBitmap()
 
     setEditorSprites();
     setBackupVariables();
+    paletteBpp = 8;
     surf.fw = 1<<surf.w;
     surf.fh = 1<<surf.h;
 }
@@ -1514,7 +1522,9 @@ void bitmapMode()
     previewYoffset = (SCREEN_H-(surf.fh))>>1;
     bgSetScale(bgMain, 256, 256);
     bgSetScroll(bgMain, -previewXoffset, -previewYoffset);
-    
+
+    if(showGrid)
+        {drawGrid(AVinvertColor(palette[paletteOffset]));}else{dmaFillWords(0, gfxGrid, 64 * 64 * 2);}
     drawSurfaceBottom();
     updateIsActiveOam();
     drawColorPalette();
@@ -1560,7 +1570,7 @@ void drawInfo()
 #endif
     
     if (animation.frames != 0) {
-        printf("\n\033[Kframe: %d / %d \nanim speed: %d", 
+        printf("\n\033[Kframe: %d / %d \nanim speed: %d  ", 
                animation.pos, animation.frames, animation.speed);
     }
 
@@ -1852,7 +1862,6 @@ int main(int argc, char *argv[])
         createAppFolder();
         clearCache();
     }
-
     if (!sd_ok)
     {
         // --- Inicializar video temporalmente en modo consola (pantalla superior) ---
@@ -2003,7 +2012,7 @@ int main(int argc, char *argv[])
                     // draw the rectangle with the selected bar.
                     oamSetXY(&oamSub, rgbSliderSelOamId, SCREEN_W - 2, (palEditSel << 3) + rgbSliderY);
                     oamUpdate(&oamSub);
-                    goto frameEnd; // you can only use one input per frame, nothing more to check here!
+                    goto frameEnd;// you can only use one input per frame, nothing more to check here!
                 }
                 if (kDown & (KEY_RIGHT | KEY_LEFT))
                 {
@@ -2062,6 +2071,7 @@ int main(int argc, char *argv[])
             showGrid = !showGrid;
             if(showGrid)
             {drawGrid(AVinvertColor(palette[paletteOffset]));}else{dmaFillWords(0, gfxGrid, 64 * 64 * 2);}
+            updateIsActiveOam();
             goto frameEnd;
         }
         //===========================================PALETAS=========================================================
@@ -2070,7 +2080,6 @@ int main(int argc, char *argv[])
         {
             palettePos = 0;
         }
-        // recordar que debo hacer cambios dependiendo del bpp
         if (kHeld & KEY_TOUCH)
         {
             if (stylusHoldTimer > 0)
@@ -2083,8 +2092,10 @@ int main(int argc, char *argv[])
             }
             if (touch.px >= SURFACE_X && touch.px < (SURFACE_W + SURFACE_X))
             { // TOUCH EN EL CENTRO!
-                if (touch.py <= SURFACE_H)
-                { // APUNTA A LA SURFACE!
+                if (touch.py <= SURFACE_H && (kDown & KEY_TOUCH || repeatCanvas))
+                {// APUNTA A LA SURFACE!
+                    imgChanges = true;
+                    repeatCanvas = true;
                     int localX = touch.px - SURFACE_X;
                     int localY = touch.py;
 
@@ -2106,11 +2117,12 @@ int main(int argc, char *argv[])
                     }
                 }
                 else
-                { // apunta a los botones de abajo
+                {
+                    // apunta a los botones de abajo
                     int row = (touch.py - SURFACE_H) >> 4;
                     int col = (touch.px - SURFACE_X) >> 4;
                     // PLACEHOLDER
-                    if (row == 3 && stylusPressed == false)
+                    if (row == 3 && (stylusPressed == false || stylusRepeat == true))
                     {
                         stylusPressed = true;
                         switch(col)
@@ -2130,6 +2142,7 @@ int main(int argc, char *argv[])
                         case 3: // play animation
                             animation.isPlaying = true;
                             playAnimation();
+                            drawSurfaceBottom();
                             break;
 
                         case 5: // next frame
@@ -2137,7 +2150,6 @@ int main(int argc, char *argv[])
                             break;
 
                         case 6: // less speed
-                            consoleClear();
                             if (animation.speed > 1)
                                 animation.speed--;
                             break;
@@ -2145,6 +2157,11 @@ int main(int argc, char *argv[])
                         case 7: // more speed
                             animation.speed++;
                             break;
+                        }
+                    }
+                    if(stylusRepeat == true){
+                        for(int i = 0; i<=animation.speed; i++){
+                            swiWaitForVBlank();
                         }
                     }
                     goto frameEnd;
@@ -2256,8 +2273,8 @@ int main(int argc, char *argv[])
                         stylusPressed = true;
                         goto frameEnd;
                     }
-                    if (touch.py >= 64 && stylusPressed == false) // revisar botones inferiores
-                    {
+                    if(touch.py >= 64 && (stylusPressed == false || stylusRepeat == true))
+                    {// revisar botones inferiores
                         // hardcodeado porque lol
                         int selected = touch.px >> 4;
                         selected += ((touch.py - 64) >> 4) << 2;
@@ -2320,8 +2337,10 @@ int main(int argc, char *argv[])
                         {
                             if (usesPages)
                             {
-                                saveFile(imgFormat, currentFilePath, palette, surface);
-
+                                if(imgChanges){
+                                    saveFile(imgFormat, currentFilePath, palette, surface);
+                                }
+                                
                                 int dir = (selected == 24) ? -1 : +1;
                                 fileOffset += dir * (paletteBpp << 11);
 
@@ -2370,7 +2389,7 @@ int main(int argc, char *argv[])
                     stylusPressed = true;
                     goto frameEnd;
                 }
-                else if (touch.py < 40 && touch.py > 32)
+                else if (touch.py < 40 && touch.py > 32 && repeatCanvas == false)
                 { // transparencia
                     if(paletteBpp == 16){
                         paletteAlpha = (touch.px - 192);
@@ -2392,8 +2411,9 @@ int main(int argc, char *argv[])
                     
                     goto frameEnd;
                 }
-                else if (touch.py >= 40 && touch.py < 64) // creador de colores
+                else if (touch.py >= 40 && touch.py < 64 && repeatCanvas == false) // creador de colores
                 {
+                    imgChanges = true;
                     // hay mucho código hardcodeado aquí para mejorar el rendimiento :>
                     if(nesMode)
                     {
@@ -2431,24 +2451,28 @@ int main(int argc, char *argv[])
                         copyPalette();
                         drawColorPalette();
                         updatePal(0, &palettePos);
+                        drawSurfaceMain();
                     break;
 
                     case 1:
                         pastePalette();
                         drawColorPalette();
                         updatePal(0, &palettePos);
+                        drawSurfaceMain();
                     break;
 
                     case 2:
                         copyColor();
                         drawColorPalette();
                         updatePal(0, &palettePos);
+                        drawSurfaceMain();
                     break;
 
                     case 3:
                         pasteColor();
                         drawColorPalette();
                         updatePal(0, &palettePos);
+                        drawSurfaceMain();
                     break;
 
                     case 13:
@@ -2492,6 +2516,7 @@ int main(int argc, char *argv[])
         {
             stylusPressed = false;
         }
+        repeatCanvas = false;
     frameEnd:
         //actualizamos el coso del preview
         if(previewPosAlpha > 0){

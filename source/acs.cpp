@@ -127,328 +127,359 @@ static inline void readCommand8(u8 byte, int* pInd, u16* surface){
     }
 }
 
-void importACS(const char* path, u16* surface, u16* pal)
-{
-    //este loader debe ser capaz de cargar todos los tipos de ACS que puedan entrar a esta app
+AcsReader acs;
 
-    //usamos backup para leer el archivo en RAM
-    u8* data = (u8*)backup;
+static inline u16 acsReadU16BE(const u8* p)
+{
+    return ((u16)p[0] << 8) | p[1];
+}
+
+static bool acsLoadFile(const char* path)
+{
+    acs = AcsReader();   // resetea todo el estado
 
     FILE* f = fopen(path, "rb");
-    if(!f) return;
+    if(!f) return false;
 
     fseek(f, 0, SEEK_END);
     size_t size = ftell(f);
     fseek(f, 0, SEEK_SET);
 
-    if(size > sizeof(backup)){ fclose(f); return; }
+    if(size > sizeof(backup)){ fclose(f); return false; }
 
-    fread(data, 1, size, f);
+    u8* buf = (u8*)backup;
+    fread(buf, 1, size, f);
     fclose(f);
 
-    // ---------- byte 0: version y otros datos ----------
-    bool usePalette = (data[0] & ACStypeusesPalette);
+    acs.data     = buf;
+    acs.fileSize = size;
+    return true;
+}
 
-    int ind = 1;
+static bool acsReadHeader()
+{
+    const u8* d   = acs.data;
+    size_t&   pos = acs.headerPos;
+
+    // ---------- byte 0: versión y flags ----------
+    acs.hasPalette = (d[0] & ACStypeusesPalette);
+    pos = 1;
 
     // ---------- byte 1: resolución ----------
     static const int resTable[16] = {
         0,4,8,16,24,32,48,64,96,128,192,256,320,512,1024,-1
     };
 
-    u8 val = data[ind++];
-    int resX = resTable[val >> 4];
-    int resY = resTable[val & 0xF];
+    u8  val = d[pos++];
+    int w   = resTable[val >> 4];
+    int h   = resTable[val & 0xF];
 
-    if(resX == -1){ resX = (data[ind]<<8) | data[ind+1]; ind+=2; }
-    if(resY == -1){ resY = (data[ind]<<8) | data[ind+1]; ind+=2; }
+    if(w == -1){ w = acsReadU16BE(d + pos); pos += 2; }
+    if(h == -1){ h = acsReadU16BE(d + pos); pos += 2; }
 
-    u32 imgRes = (u32)resX * (u32)resY;
+    acs.width      = w;
+    acs.height     = h;
+    acs.pixelCount = (u32)w * (u32)h;
 
     // ---------- byte 2: bpp + colorMode ----------
-    val = data[ind++];
-    u8 bpp       = val >> 6;
-    paletteBpp   = 1 << (bpp & 0b11);
-    u8 colorMode = (val >> 3) & 0b111;
-    if(colorMode > ACStotalModes) return;
+    val = d[pos++];
+    acs.bppCode      = val >> 6;
+    acs.bitsPerPixel = 1 << (acs.bppCode & 0b11);
+    acs.colorMode    = (val >> 3) & 0b111;
+    if(acs.colorMode > ACStotalModes) return false;
 
     // ---------- colorCount ----------
-    int colorCount;
-    if(usePalette){
-        colorCount = data[ind++];
+    if(acs.hasPalette){
+        acs.paletteSize = d[pos++];
     }else{
-        if(paletteBpp == 16){
-            return; //you can't have direct color mode without colors.
+        if(acs.bitsPerPixel == 16){
+            return false; // no hay modo directo sin colores
         }
-        colorCount = 1<<paletteBpp;
+        acs.paletteSize = 1 << acs.bitsPerPixel;
     }
-    //  MODO INDEXADO
-    if(colorCount > 0){
+    return true;
+}
 
-        // --- leer paleta ---
-        if(usePalette){
-            switch(colorMode){
+static void acsReadPalette(u16* pal)
+{
+    const u8* d   = acs.data;
+    size_t&   pos = acs.headerPos;
+    const int count = acs.paletteSize;
 
-                case ACScolModeARGB1555:
-                    for(int i = 0; i <= colorCount; i++){
-                        pal[i] = ((u16)data[ind] << 8) | data[ind+1];
-                        ind += 2;
-                    }
-                break;
+    switch(acs.colorMode){
 
-                case ACScolModeARGB8888:
-                    for(int i = 0; i <= colorCount; i++){
-                        u8 a = data[ind++] >> 7;
-                        u8 r = data[ind++] >> 3;
-                        u8 g = data[ind++] >> 3;
-                        u8 b = data[ind++] >> 3;
-                        pal[i] = (u16)((a<<15)|(r<<10)|(g<<5)|b);
-                    }
-                break;
-
-                case ACScolModeGrayScale4:
-                    for(int i = 0; i <= colorCount; i++){
-                        u8 v  = data[ind++];
-                        u8 hi = (v & 0xF0) >> 3;
-                        u8 lo = (v & 0x0F) << 1;
-                        pal[i++] = 0x8000 | (hi<<10) | (hi<<5) | hi;
-                        if(i >= colorCount) break;
-                        pal[i]   = 0x8000 | (lo<<10) | (lo<<5) | lo;
-                    }
-                break;
-
-                case ACScolModeGrayScale8:
-                    for(int i = 0; i <= colorCount; i++){
-                        u8 v = data[ind++] >> 3;
-                        pal[i] = 0x8000 | (u16)((v<<10)|(v<<5)|v);
-                    }
-                break;
-
-                case ACScolModeRGB888:
-                    for(int i = 0; i <= colorCount; i++){
-                        u8 r = data[ind++] >> 3;
-                        u8 g = data[ind++] >> 3;
-                        u8 b = data[ind++] >> 3;
-                        pal[i] = 0x8000 | (u16)((r<<10)|(g<<5)|b);
-                    }
-                break;
+        case ACScolModeARGB1555:
+            for(int i = 0; i <= count; i++){
+                pal[i] = acsReadU16BE(d + pos);
+                pos += 2;
             }
-        }
+        break;
+
+        case ACScolModeARGB8888:
+            for(int i = 0; i <= count; i++){
+                u8 a = d[pos++] >> 7;
+                u8 r = d[pos++] >> 3;
+                u8 g = d[pos++] >> 3;
+                u8 b = d[pos++] >> 3;
+                pal[i] = (u16)((a<<15)|(r<<10)|(g<<5)|b);
+            }
+        break;
+
+        case ACScolModeGrayScale4:
+            for(int i = 0; i <= count; i++){
+                u8 v  = d[pos++];
+                u8 hi = (v & 0xF0) >> 3;
+                u8 lo = (v & 0x0F) << 1;
+                pal[i++] = 0x8000 | (hi<<10) | (hi<<5) | hi;
+                if(i >= count) break;
+                pal[i]   = 0x8000 | (lo<<10) | (lo<<5) | lo;
+            }
+        break;
+
+        case ACScolModeGrayScale8:
+            for(int i = 0; i <= count; i++){
+                u8 v = d[pos++] >> 3;
+                pal[i] = 0x8000 | (u16)((v<<10)|(v<<5)|v);
+            }
+        break;
+
+        case ACScolModeRGB888:
+            for(int i = 0; i <= count; i++){
+                u8 r = d[pos++] >> 3;
+                u8 g = d[pos++] >> 3;
+                u8 b = d[pos++] >> 3;
+                pal[i] = 0x8000 | (u16)((r<<10)|(g<<5)|b);
+            }
+        break;
+    }
+}
+
+static void acsSetupBlocks()
+{
+    const u8* d   = acs.data;
+    size_t&   pos = acs.headerPos;
+
+    acs.ctrlBlockBytes = acsReadU16BE(d + pos); pos += 2;
+    acs.cmdBlockBytes  = acsReadU16BE(d + pos); pos += 2;
+
+    acs.ctrlBlock = d + pos;
+    acs.cmdBlock  = d + pos + acs.ctrlBlockBytes;
+    acs.pixBlock  = d + pos + acs.ctrlBlockBytes + acs.cmdBlockBytes;
+    pos += acs.ctrlBlockBytes + acs.cmdBlockBytes;
+
+    acs.ctrlBitPos = 0;
+    acs.cmdBytePos = 0;
+    acs.pixBytePos = 0;
+    acs.outPos     = 0;
+    acs.subPixel   = 0;
+}
+
+static void acsDecodeIndexed(u16* surface)
+{
+    const int total = (int)acs.pixelCount;
+
+    switch(acs.bppCode){
+
+        // -------- 8 BPP --------
+        case 3:
+            while(acs.outPos < total){
+                u8  ctrl     = acs.ctrlBlock[acs.ctrlBitPos >> 3];
+                int startBit = acs.ctrlBitPos & 7;
+                int bitsLeft = 8 - startBit;
+                int pixLeft  = total - acs.outPos;
+                int n = bitsLeft < pixLeft ? bitsLeft : pixLeft;
+
+                u8 mask = 0x80 >> startBit;
+                for(int b = 0; b < n; b++, mask >>= 1){
+                    if(ctrl & mask){
+                        readCommand8(acs.cmdBlock[acs.cmdBytePos++], &acs.outPos, surface);
+                    } else {
+                        surface[acs.outPos++] = acs.pixBlock[acs.pixBytePos++];
+                    }
+                }
+                acs.ctrlBitPos += n;
+            }
+        break;
+
+        // -------- 4 BPP --------
+        case 2:
+            while(acs.outPos < total){
+                u8  ctrl     = acs.ctrlBlock[acs.ctrlBitPos >> 3];
+                int startBit = acs.ctrlBitPos & 7;
+                int bitsLeft = 8 - startBit;
+                int pixLeft  = total - acs.outPos;
+                int n = bitsLeft < pixLeft ? bitsLeft : pixLeft;
+
+                u8 mask = 0x80 >> startBit;
+                for(int b = 0; b < n; b++, mask >>= 1){
+                    if(ctrl & mask){
+                        readCommand8(acs.cmdBlock[acs.cmdBytePos++], &acs.outPos, surface);
+                    } else {
+                        u8 raw = acs.pixBlock[acs.pixBytePos];
+                        u8 index;
+                        if(acs.subPixel == 0){ index = raw >> 4;   acs.subPixel = 1; }
+                        else                 { index = raw & 0x0F; acs.pixBytePos++; acs.subPixel = 0; }
+                        surface[acs.outPos++] = index;
+                    }
+                }
+                acs.ctrlBitPos += n;
+            }
+        break;
+
+        // -------- 2 BPP --------
+        case 1:
+            while(acs.outPos < total){
+                u8  ctrl     = acs.ctrlBlock[acs.ctrlBitPos >> 3];
+                int startBit = acs.ctrlBitPos & 7;
+                int bitsLeft = 8 - startBit;
+                int pixLeft  = total - acs.outPos;
+                int n = bitsLeft < pixLeft ? bitsLeft : pixLeft;
+
+                u8 mask = 0x80 >> startBit;
+                for(int b = 0; b < n; b++, mask >>= 1){
+                    if(ctrl & mask){
+                        readCommand8(acs.cmdBlock[acs.cmdBytePos++], &acs.outPos, surface);
+                    } else {
+                        int shift = 6 - (acs.subPixel << 1);
+                        u8 index  = (acs.pixBlock[acs.pixBytePos] >> shift) & 0b11;
+                        surface[acs.outPos++] = index;
+                        acs.subPixel++;
+                        if(shift == 0){ acs.pixBytePos++; acs.subPixel = 0; }
+                    }
+                }
+                acs.ctrlBitPos += n;
+            }
+        break;
+
+        // -------- 1 BPP --------
+        case 0:
+            while(acs.outPos < total){
+                u8  ctrl     = acs.ctrlBlock[acs.ctrlBitPos >> 3];
+                int startBit = acs.ctrlBitPos & 7;
+                int bitsLeft = 8 - startBit;
+                int pixLeft  = total - acs.outPos;
+                int n = bitsLeft < pixLeft ? bitsLeft : pixLeft;
+
+                u8 mask = 0x80 >> startBit;
+                for(int b = 0; b < n; b++, mask >>= 1){
+                    if(ctrl & mask){
+                        readCommand8(acs.cmdBlock[acs.cmdBytePos++], &acs.outPos, surface);
+                    } else {
+                        int shift = 7 - acs.subPixel;
+                        u8 index  = (acs.pixBlock[acs.pixBytePos] >> shift) & 1;
+                        surface[acs.outPos++] = index;
+                        acs.subPixel++;
+                        if(shift == 0){ acs.pixBytePos++; acs.subPixel = 0; }
+                    }
+                }
+                acs.ctrlBitPos += n;
+            }
+        break;
+    }
+}
+
+static void acsDecodeDirect(u16* surface)
+{
+    const u8* d   = acs.data;
+    size_t&   pos = acs.headerPos;
+    const int total = (int)acs.pixelCount;
+
+    acs.bitsPerPixel = 16;
+    acs.outPos = 0;
+
+    switch(acs.colorMode){
+
+        case ACScolModeARGB1555:
+            while(acs.outPos < total){
+                u8 hi = d[pos++];
+                u8 lo = d[pos++];
+                if(hi < 0x80){
+                    if((hi | lo) != 0){
+                        readCommand7(hi, &acs.outPos, surface);
+                        pos--;
+                        continue;
+                    } else {
+                        surface[acs.outPos++] = 0;
+                        continue;
+                    }
+                }
+                surface[acs.outPos++] = ((u16)hi << 8) | lo;
+            }
+        break;
+
+        case ACScolModeARGB8888:
+            while(acs.outPos < total){
+                u8 a = d[pos++] >> 7;
+                u8 r = d[pos++] >> 3;
+                u8 g = d[pos++] >> 3;
+                u8 b = d[pos++] >> 3;
+                if(a == 0){
+                    if((r | g | b) != 0){
+                        readCommand7(r, &acs.outPos, surface);
+                        pos -= 2;
+                        continue;
+                    } else {
+                        surface[acs.outPos++] = 0;
+                        continue;
+                    }
+                }
+                surface[acs.outPos++] = (u16)((a<<15)|(r<<10)|(g<<5)|b);
+            }
+        break;
+
+        case ACScolModeRGB888:
+            // sin implementar
+        break;
+    }
+}
+
+void importACS(const char* path, u16* surface, u16* pal)
+{//este es el cargador para el usuario
+    if(!acsLoadFile(path))  return;
+    if(!acsReadHeader())    return;
+
+    // ---------- MODO INDEXADO ----------
+    if(acs.paletteSize > 0){
+
+        if(acs.hasPalette) acsReadPalette(pal);
+
         // modo oculto solo-paleta
-        if(resX == 0 || resY == 0) return;
+        if(acs.width == 0 || acs.height == 0) return;
 
-        surf.w = log2(resX);
-        surf.h = log2(resY);
-        dmaFillWords(0, surface,32768);
+        surf.w = log2(acs.width);
+        surf.h = log2(acs.height);
+        dmaFillWords(0, surface, 32768);
 
-        // --- cabecera de control ---
-        int ByteCtrlCount  = ((int)data[ind]<<8) | data[ind+1]; ind+=2;
-        int CommandsCount  = ((int)data[ind]<<8) | data[ind+1]; ind+=2;
+        acsSetupBlocks();
+        acsDecodeIndexed(surface);
 
-        const u8* ctrlBase = data + ind;           // puntero fijo al bloque de control
-        const u8* cmdBase  = data + ind + ByteCtrlCount; // puntero fijo al bloque de comandos
-        ind += ByteCtrlCount + CommandsCount;       // ind apunta ahora a los datos de píxel
-
-        // punteros de lectura independientes — evita recalcular offsets cada vez
-        const u8* pixPtr  = data + ind;
-        const u8* cmdPtr  = cmdBase;
-        int ctrlPos = 0;
-        int pInd    = 0;
-        u8  part    = 0;
-
-        //  HOT LOOP — bit de control desempaquetado de a 8 bits
-        //  para reducir las divisiones/módulos por iteración.
-        #define CTRL_BIT() \
-            (( ctrlBase[ctrlPos >> 3] >> (7 - (ctrlPos & 7)) ) & 1)
-
-        switch(bpp){
-
-            // -------- 8 BPP --------
-            case 3:
-                while(pInd < (int)imgRes){
-                    // desempaquetar el byte de control actual completo
-                    u8 ctrl = ctrlBase[ctrlPos >> 3];
-                    int startBit = ctrlPos & 7;
-                    int bitsLeft = 8 - startBit;
-                    int pixLeft  = (int)imgRes - pInd;
-                    int n = bitsLeft < pixLeft ? bitsLeft : pixLeft;
-
-                    u8 mask = 0x80 >> startBit;
-                    for(int b = 0; b < n; b++, mask >>= 1){
-                        if(ctrl & mask){
-                            readCommand8(*cmdPtr++, &pInd, surface);
-                        } else {
-                            surface[pInd++] = *pixPtr++;
-                        }
-                    }
-                    ctrlPos += n;
-                }
-            break;
-
-            // -------- 4 BPP --------
-            case 2:
-                while(pInd < (int)imgRes){
-                    u8 ctrl = ctrlBase[ctrlPos >> 3];
-                    int startBit = ctrlPos & 7;
-                    int bitsLeft = 8 - startBit;
-                    int pixLeft  = (int)imgRes - pInd;
-                    int n = bitsLeft < pixLeft ? bitsLeft : pixLeft;
-
-                    u8 mask = 0x80 >> startBit;
-                    for(int b = 0; b < n; b++, mask >>= 1){
-                        if(ctrl & mask){
-                            readCommand8(*cmdPtr++, &pInd, surface);
-                        } else {
-                            u8 raw = *pixPtr;
-                            u8 index;
-                            if(part == 0){ index = raw >> 4;   part = 1; }
-                            else         { index = raw & 0x0F; pixPtr++; part = 0; }
-                            surface[pInd++] = index;
-                        }
-                    }
-                    ctrlPos += n;
-                }
-            break;
-
-            // -------- 2 BPP --------
-            case 1:
-                while(pInd < (int)imgRes){
-                    u8 ctrl = ctrlBase[ctrlPos >> 3];
-                    int startBit = ctrlPos & 7;
-                    int bitsLeft = 8 - startBit;
-                    int pixLeft  = (int)imgRes - pInd;
-                    int n = bitsLeft < pixLeft ? bitsLeft : pixLeft;
-
-                    u8 mask = 0x80 >> startBit;
-                    for(int b = 0; b < n; b++, mask >>= 1){
-                        if(ctrl & mask){
-                            readCommand8(*cmdPtr++, &pInd, surface);
-                        } else {
-                            int shift = 6 - (part << 1);
-                            u8 index = (*pixPtr >> shift) & 0b11;
-                            surface[pInd++] = index;
-                            part++;
-                            if(shift == 0){ pixPtr++; part = 0; }
-                        }
-                    }
-                    ctrlPos += n;
-                }
-            break;
-
-            // -------- 1 BPP --------
-            case 0:
-                while(pInd < (int)imgRes){
-                    u8 ctrl = ctrlBase[ctrlPos >> 3];
-                    int startBit = ctrlPos & 7;
-                    int bitsLeft = 8 - startBit;
-                    int pixLeft  = (int)imgRes - pInd;
-                    int n = bitsLeft < pixLeft ? bitsLeft : pixLeft;
-
-                    u8 mask = 0x80 >> startBit;
-                    for(int b = 0; b < n; b++, mask >>= 1){
-                        if(ctrl & mask){
-                            readCommand8(*cmdPtr++, &pInd, surface);
-                        } else {
-                            int shift = 7 - part;
-                            u8 index = (*pixPtr >> shift) & 1;
-                            surface[pInd++] = index;
-                            part++;
-                            if(shift == 0){ pixPtr++; part = 0; }
-                        }
-                    }
-                    ctrlPos += n;
-                }
-            break;
-        }
-
-        #undef CTRL_BIT
-
-    //  MODO DIRECTO
+    // ---------- MODO DIRECTO ----------
     } else {
-        paletteBpp = 16;
-        int pInd = 0;
+        acsDecodeDirect(surface);
+    }
+    paletteBpp = acs.bitsPerPixel;
+}
 
-        switch(colorMode){
+void importACS16(const char* path, u16* surface, u16* pal)
+{//cargar para hardware 16bpp
+    if(!acsLoadFile(path))  return;
+    if(!acsReadHeader())    return;
 
-            case ACScolModeARGB1555:
-                while(pInd < (int)imgRes){
-                    u8 hi = data[ind++];
-                    u8 lo = data[ind++];
-                    if(hi < 0x80){
-                        if((hi | lo) != 0){
-                            readCommand7(hi, &pInd, surface);
-                            ind--;
-                            continue;
-                        } else {
-                            surface[pInd++] = 0;
-                            continue;
-                        }
-                    }
-                    surface[pInd++] = ((u16)hi << 8) | lo;
-                }
-            break;
+    if(acs.paletteSize > 0){
 
-            case ACScolModeARGB8888:
-                for(int i = 0; i < (int)imgRes; i++){
-                    u8 a = data[ind++] >> 7;
-                    u8 r = data[ind++] >> 3;
-                    u8 g = data[ind++] >> 3;
-                    u8 b = data[ind++] >> 3;
-                    if(a == 0){
-                        if((r | g | b) != 0){
-                            readCommand7(r, &i, surface);
-                            ind -= 2;
-                            continue;
-                        } else {
-                            surface[i] = 0;
-                            continue;
-                        }
-                    }
-                    surface[i] = (u16)((a<<15)|(r<<10)|(g<<5)|b);
-                }
-            break;
+        if(acs.hasPalette) acsReadPalette(pal);
 
-            case ACScolModeGrayScale4:
-                for(int i = 0; i < 16; i++){
-                    pal[i] = 0x8000 | (u16)((i<<11)|(1<<6)|(1<<1));
-                }
-            break;
+        if(acs.width == 0 || acs.height == 0)
+            return;//no debería pasar
 
-            case ACScolModeGrayScale8:{
-                for(int i = 0; i < 32; i++){
-                    pal[i] = 0x8000 | (u16)((i<<10)|(i<<5)|i);
-                }
-
-                int ByteCtrlCount = ((int)data[ind]<<8) | data[ind+1]; ind+=2;
-                int CommandsCount = ((int)data[ind]<<8) | data[ind+1]; ind+=2;
-
-                const u8* ctrlBase = data + ind;
-                const u8* cmdPtr   = data + ind + ByteCtrlCount;
-                const u8* pixPtr   = data + ind + ByteCtrlCount + CommandsCount;
-                int ctrlPos = 0;
-
-                while(pInd < (int)imgRes){
-                    u8 ctrl = ctrlBase[ctrlPos >> 3];
-                    int startBit = ctrlPos & 7;
-                    int bitsLeft = 8 - startBit;
-                    int pixLeft  = (int)imgRes - pInd;
-                    int n = bitsLeft < pixLeft ? bitsLeft : pixLeft;
-
-                    u8 mask = 0x80 >> startBit;
-                    for(int b = 0; b < n; b++, mask >>= 1){
-                        if(ctrl & mask){
-                            readCommand8(*cmdPtr++, &pInd, surface);
-                        } else {
-                            surface[pInd++] = *pixPtr++ >> 3;
-                        }
-                    }
-                    ctrlPos += n;
-                }
-            break;}
-
-            case ACScolModeRGB888:
-            break;
+        acsSetupBlocks();
+        acsDecodeIndexed(surface);
+        //convertimos de indexed a direct
+        for(int i = 0; i < acs.pixelCount; i++){
+            surface[i] = pal[surface[i]];
         }
+    } else {
+        acsDecodeDirect(surface);
     }
 }
 

@@ -62,25 +62,25 @@ void saveFile(int format, char* path, u16* palette, u16* surface){
             saveBMP(path, palette, surface);
         break;
         case formatNES:
-            exportNES(path, surface, 1<<surf.h);
+            exportNES(path, surface, surf.fh);
         break;
         case formatGBC:
-            exportGBC(path, surface, 1<<surf.h);
+            exportGBC(path, surface, surf.fh);
         break;
         case formatSNES4:
-            exportSNES(path, surface, 1<<surf.h);
+            exportSNES(path, surface, surf.fh);
         break;
         case formatGBA4:
-            exportGBA(path, surface, 1<<surf.h);
+            exportGBA(path, surface, surf.fh);
         break;
         case formatPCX:
-            exportPCX(path, surface, palette, 1<<surf.w, 1<<surf.h);
+            exportPCX(path, surface, palette, surf.fh, surf.fh);
         break;
         case formatPAL:
             exportPal(path, palette);
         break;
         case formatSNES8:
-            exportSNES8bpp(path, surface, 1<<surf.h);
+            exportSNES8bpp(path, surface, surf.fh);
         break;
         case formatPal1555:
             exportPal1555(path, palette);
@@ -422,4 +422,45 @@ if ( key < 0 ) return;
             fname[selector] = '\0';
         }
     }
+}
+#define PATH_MAX 512
+bool fsGetDevice(char *device, size_t size)
+{
+    char cwd[PATH_MAX];
+
+    if (!getcwd(cwd, sizeof(cwd)))
+        return false;
+
+    const char *colon = strchr(cwd, ':');
+    if (!colon)
+        return false;
+
+    size_t n = (size_t)(colon - cwd) + 1;
+    if (n >= size)
+        return false;
+
+    memcpy(device, cwd, n);
+    device[n] = '\0';
+    return true;
+}
+
+// Vuelve al dispositivo y a la ruta indicada por path
+bool fsRestore(const char *device, char *path)
+{
+    char full[16 + 257 + 2];
+    const char *sep = (path[0] == '/') ? "" : "/";
+
+    //intenta la carpeta exacta
+    snprintf(full, sizeof(full), "%s%s%s", device, sep, path);
+    if (chdir(full) == 0)
+        return true;
+
+    //si la carpeta ya no existe, vuelve a la raíz del disco
+    snprintf(full, sizeof(full), "%s/", device);
+    if (chdir(full) == 0) {
+        path[0] = '\0';
+        return true;
+    }
+
+    return false;
 }

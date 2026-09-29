@@ -8,7 +8,7 @@ NAME            := A-Pix
 GAME_TITLE      := A-Pix DS
 GAME_SUBTITLE   := 0.7
 GAME_AUTHOR     := Alfombracitario
-GAME_ICON 		:= icon.bmp
+GAME_ICON 		:= icon.gif
 
 SOURCEDIRS      := source
 INCLUDEDIRS     := include
@@ -18,5 +18,3 @@ AUDIODIRS       := audio
 NITROFSDIR	:= nitrofs
 
 include $(BLOCKSDS)/sys/default_makefiles/rom_arm9/Makefile
-
-

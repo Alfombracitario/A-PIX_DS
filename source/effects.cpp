@@ -46,8 +46,8 @@ struct ColorEntry {
     bool kept;
 };
 
-//helpers (itcm)
-__attribute__((section(".itcm"))) void indexedToDirect(){
+//helpers
+inline void indexedToDirect(){
     paletteBpp = 16;
     const u32 iterations = 1<<surf.w<<surf.h;
     for(int i = 0; i < iterations; i++){
@@ -55,9 +55,9 @@ __attribute__((section(".itcm"))) void indexedToDirect(){
     }
 }
 //test de ahora, luego veo de dónde saco toda esta memoria (usando backup)
-u16 temp[65536];
-static u8 remapTable[32768];  // Tabla de remapeo separada
-__attribute__((section(".itcm"))) void posterize(int numColors) {
+static u16 temp[65536];
+static u8 remapTable[32768];// Tabla de remapeo separada
+ITCM_CODE void posterize(int numColors) {
     dmaFillHalfWords(0, temp, 65536*2);
 
     const int res = 1<<surf.w<<surf.h;
@@ -78,15 +78,12 @@ __attribute__((section(".itcm"))) void posterize(int numColors) {
     }
 
     // Ordenar por frecuencia
-    for(int i = 0; i < colorCount - 1; i++){
-        for(int j = i + 1; j < colorCount; j++){
-            if(temp[uniqueColors[j]] > temp[uniqueColors[i]]){
-                u16 tempColor = uniqueColors[i];
-                uniqueColors[i] = uniqueColors[j];
-                uniqueColors[j] = tempColor;
-            }
-        }
-    }
+    qsort(uniqueColors, colorCount, sizeof(u16), 
+        [](const void* a, const void* b) {
+            int freqA = temp[*(u16*)a];
+            int freqB = temp[*(u16*)b];
+            return freqB - freqA;  // Descendente
+        });
 
     // Seleccionar paleta
     int paletteSize = (colorCount < numColors) ? colorCount : numColors;
@@ -147,7 +144,6 @@ __attribute__((section(".itcm"))) void posterize(int numColors) {
         }
         surface[i] = remapTable[color];
     }
-    paletteBpp = 8;
 }
 bool applyEffect(EffectId id)
 {
@@ -350,6 +346,7 @@ bool applyEffect(EffectId id)
                 count = surfaceSize;
             }
             posterize(param);
+            paletteBpp = 8;
             break;
         }
         #ifdef DSiMode

@@ -62,22 +62,18 @@ build/A-Pix/source/main.cpp.o: source/main.cpp \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/teak/dsp.h \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/teak/fifo.h \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/teak/tlf.h \
- build/A-Pix/graphics/font.h source/timers.h source/formatsglobals.h \
- source/textconsole.h source/files.h source/formats.h source/acs.h \
- source/png/lodepng.h source/gif/gif_lib.h \
+ build/A-Pix/graphics/font.h \
+ C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/filesystem.h \
+ source/timers.h source/formatsglobals.h source/textconsole.h \
+ source/files.h source/formats.h source/acs.h source/png/lodepng.h \
+ source/gif/gif_lib.h \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/fat.h \
  source/avdslib.h source/intro.h source/animation.h source/music.h \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/maxmod/include/maxmod9.h \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/maxmod/include/mm_types.h \
  source/tools.h build/A-Pix/graphics/GFXinput.h \
  build/A-Pix/graphics/GFXconsoleInput.h \
- build/A-Pix/graphics/GFXselector24.h \
- build/A-Pix/graphics/GFXselector16.h \
- build/A-Pix/graphics/GFXnewImageInput.h build/A-Pix/graphics/GFXmore.h \
- build/A-Pix/graphics/GFXbrushSettings.h \
- build/A-Pix/graphics/GFXselector8.h build/A-Pix/graphics/GFXrgbSliders.h \
- build/A-Pix/graphics/GFXselector5.h \
- build/A-Pix/graphics/GFXrgbSliderSel.h
+ build/A-Pix/graphics/GFXnewImageInput.h
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds.h:
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/bios.h:
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/ndstypes.h:
@@ -142,6 +138,7 @@ C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/te
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/teak/fifo.h:
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds/arm9/teak/tlf.h:
 build/A-Pix/graphics/font.h:
+C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/filesystem.h:
 source/timers.h:
 source/formatsglobals.h:
 source/textconsole.h:
@@ -160,12 +157,4 @@ C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/maxmod/include/mm_types.h:
 source/tools.h:
 build/A-Pix/graphics/GFXinput.h:
 build/A-Pix/graphics/GFXconsoleInput.h:
-build/A-Pix/graphics/GFXselector24.h:
-build/A-Pix/graphics/GFXselector16.h:
 build/A-Pix/graphics/GFXnewImageInput.h:
-build/A-Pix/graphics/GFXmore.h:
-build/A-Pix/graphics/GFXbrushSettings.h:
-build/A-Pix/graphics/GFXselector8.h:
-build/A-Pix/graphics/GFXrgbSliders.h:
-build/A-Pix/graphics/GFXselector5.h:
-build/A-Pix/graphics/GFXrgbSliderSel.h:
