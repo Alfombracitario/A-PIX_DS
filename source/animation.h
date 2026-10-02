@@ -7,6 +7,9 @@
 #define ANIM_TEMP CACHE_PATH "animation.temp"
 #define ANIM_TEMP_NEW CACHE_PATH "animation_new.temp"
 
+void initAnimation();
+void enableSDcache();
+
 void loadAnimFrame(u16 *surface);
 void saveAnimFrame();
 void nextAnimFrame();
@@ -25,4 +28,8 @@ struct Animation
 
 extern Animation animation;
 extern bool audioSync;
+extern size_t extraRamSize;
+extern bool hasExtraRam;
+extern bool enableSDcardCache;
+extern void *extraRamBuffer;
 #endif

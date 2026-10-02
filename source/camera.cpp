@@ -87,12 +87,6 @@ int videoRecord(){
     videoSetMode(MODE_5_2D);
     int bg3Main = bgInit(3, BgType_Bmp16, BgSize_B16_256x256, true, false);
 
-    FILE *f = fopen(ANIM_TEMP, "r+b");
-    if (!f)
-        f = fopen(ANIM_TEMP, "wb");
-    if (!f)
-        return -1;
-    
     while(1){
         scanKeys();
         kDown = keysDown();
@@ -112,14 +106,12 @@ int videoRecord(){
         for (int i = 0; i < animation.speed; i++){
             swiWaitForVBlank();//la velocidad de la grabación corresponde a la de animación
         }
-        fwrite(surface, 1, surfaceBytes, f); // píxeles
-        fwrite(palette, 1, 512, f); // paleta del frame
+        saveAnimFrame();
         animation.frames++; 
         animation.pos = animation.frames;
     }
     cameraStopTransfer();
     cameraDeinit();
-    fclose(f);
     return 1;
     #endif  
 }

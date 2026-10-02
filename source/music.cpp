@@ -277,32 +277,8 @@ bool wavPlay(const char* path) {
 
     mmStreamOpen(&activeStream);
     wavPlaying = true;
+    disableSleep();
     return wavPlaying;
-}
-
-// Llena el buffer y comprueba si el WAV terminó
-void wavStreamUpdate() {
-    if (!wavFile)
-        return;
-
-    wavStreamFillBuffer(false);
-
-    // El callback ya consumió todo el último bloque.
-    // Ahora podemos cerrar el stream y el archivo fuera
-    // del callback de Maxmod.
-    if (wavStopPending && stream_buffer_available == 0) {
-        mmStreamClose();
-
-        fclose(wavFile);
-        wavFile = NULL;
-
-        wavStopPending = false;
-        wavFinished = false;
-
-        stream_buffer_in = 0;
-        stream_buffer_out = 0;
-        stream_buffer_available = 0;
-    }
 }
 
 // Detiene la reproducción manualmente
@@ -320,10 +296,38 @@ void wavStop() {
     stream_buffer_in = 0;
     stream_buffer_out = 0;
     stream_buffer_available = 0;
+
+    enableSleep();
 }
 
 void wavContinue(){
     wavPlay(musicPath);
+}
+// Llena el buffer y comprueba si el WAV terminó
+void wavStreamUpdate() {
+    if (!wavFile)
+        return;
+
+    if (keysHeld() & KEY_LID) {
+        systemSetBacklightLevel(PM_BACKLIGHT_OFF);
+
+        //Bucle interno para seguir reproduciendo música
+        while (keysHeld() & KEY_LID) {
+            wavStreamFillBuffer(false);
+            swiWaitForVBlank();
+            scanKeys();
+        }
+        //ya se abrió, restauramos
+        systemSetBacklightLevel(1);
+    }
+
+    wavStreamFillBuffer(false);
+
+    // El callback ya consumió todo el último bloque.
+    // Ahora podemos cerrar el stream.
+    if (wavStopPending && stream_buffer_available == 0) {
+        wavStop();
+    }
 }
 
 //sé que no es música pero el microfono es sonido así que...
@@ -351,8 +355,8 @@ void microphone_handler(void *completed_buffer, int length)
 
 void recordAudio(){
     wavStop();
-    //la calidad se configura automáticamente dependiendo del sistema
 
+    
     DC_FlushAll();
     soundMicRecord(backup, sizeof(backup),
                 MicFormat_12Bit, 16000, microphone_handler);

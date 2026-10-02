@@ -7,9 +7,9 @@
 //	Transparent color : FF,00,FF
 //	+ palette 256 entries, not compressed
 //	+ bitmap lz77 compressed
-//	Total size: 512 + 9264 = 9776
+//	Total size: 512 + 9308 = 9820
 //
-//	Time-stamp: 2026-09-28, 19:47:15
+//	Time-stamp: 2026-10-01, 01:08:12
 //	Exported by Cearn's GBA Image Transmogrifier, v1.15.7-dirty
 //	( http://www.coranac.com/projects/#grit )
 //
@@ -18,8 +18,8 @@
 #ifndef GRIT_GFXINPUT_H
 #define GRIT_GFXINPUT_H
 
-#define GFXinputBitmapLen 9264
-extern const unsigned int GFXinputBitmap[2316];
+#define GFXinputBitmapLen 9308
+extern const unsigned int GFXinputBitmap[2327];
 
 #define GFXinputPalLen 512
 extern const unsigned short GFXinputPal[256];

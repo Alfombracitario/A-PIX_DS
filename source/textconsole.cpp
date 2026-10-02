@@ -407,7 +407,7 @@ bool runTextConsole()
     kDown = 0;
     kHeld = 0;
     kUp   = 0;
-    
+    consoleClear();
     while (true)
     {
         wavStreamUpdate();

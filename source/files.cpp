@@ -168,8 +168,11 @@ void previewFile(int format, const char* filename){
     if(kDown & KEY_TOUCH){
         return;
     }
+    if(format >= MaxFormats-extraSaveFormats){
+        return;
+    }
     preview = true;
-    int preBpp         = paletteBpp;
+    int preBpp   = paletteBpp;
     int preSurfh = surf.h;
     int preSurfw = surf.w;
 

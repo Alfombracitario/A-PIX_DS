@@ -1285,18 +1285,40 @@ static int copyFile(const char *src, const char *dst) {
     return frames;
 }
 
-//Este código aún no ha sido eliminado, pero no le queda mucho para que actualice ACS
+//en la app lo renombré a RAW
 void exportAnim(const char *path){
     saveAnimFrame();
-    copyFile(ANIM_TEMP,path);
+    if(enableSDcardCache){
+        copyFile(ANIM_TEMP,path);
+        return;
+    }else{
+        FILE *f = fopen(path, "wb");
+        if (!f)
+            return;
+        const long fileSize = ((2<<surf.w<<surf.h)+512)*animation.frames;
+        fwrite(extraRamBuffer, 1, fileSize, f);
+        fclose(f);
+    }
 }
 
 void importAnim(const char *path){
     if(!preview){
+        if(enableSDcardCache){
         animation.frames = copyFile(path,ANIM_TEMP);
         loadAnimFrame(surface);
+        }else{
+            FILE *f = fopen(path, "rb");
+            const int dataSize = ftell(f);
+            if(dataSize <= extraRamSize){
+                animation.frames = dataSize/((surfaceSizeVRAM << 1) + 512);
+                fread(extraRamBuffer, 1, dataSize, f);
+            }else{
+                animation.frames = 0;
+                enableSDcache();
+                importAnim(path);
+            }
+        }
     }
-    
 }
 
 static inline u16 rgb888_to_abgr1555(const GifColorType *c)
@@ -1314,10 +1336,10 @@ static inline void abgr1555ToGifColor(u16 c, GifColorType *out)
 }
 int importGIF(const char *filename)
 {
-    saveAnimFrame();
     if(preview){
         return -1;
     }
+    //saveAnimFrame();
     int error;
 
     GifFileType *gif = DGifOpenFileName(filename, &error);
@@ -1339,7 +1361,6 @@ int importGIF(const char *filename)
     if (frameCount <= 1) {
 
         animation.frames = 0;
-
 
         memset(surface, 0, pixels * sizeof(u16));
 
@@ -1525,7 +1546,13 @@ int importGIF(const char *filename)
         }
     }
 
-    //terminamos de escribir, ahora como soy un flojo leeré el primer frame
+    //terminamos de escribir
+
+    
+    /*
+    Como estoy cansado de hacer este decoder, en vez de implementarlo bien
+    haré que se lea el primer frame del archivo generado
+    */
 
     surf.fw = gif->SWidth;
     surf.fh = gif->SHeight;
@@ -1545,6 +1572,8 @@ int exportGIF(const char *filename)
 {
     if (animation.frames == 0) {
         return 0;
+    }else{
+        saveAnimFrame();
     }
 
     animation.pos = 0;
@@ -1590,9 +1619,8 @@ int exportGIF(const char *filename)
     u8 painted = 0;
     u32 acc;
     // Escribir todos los frames con sus propias paletas
-    for (int frame = 0; frame < animation.frames; frame++) {
+    for (int frame = 0; frame <= animation.frames; frame++) {
         //mostrar barra de progreso con el fondo porque se puede
-        
         acc += step;
         u32 toPaint = acc >> FRAC_BITS;
         acc &= (1u << FRAC_BITS) - 1;

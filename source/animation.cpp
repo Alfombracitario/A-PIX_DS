@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include "music.h"
 
-#define PALETTE_SIZE (256 * 2) // 512 bytes, fijo siempre
+#define PALETTE_SIZE (256 * 2)
 
 bool audioSync;
 extern bool imgChanges;
@@ -28,6 +28,61 @@ extern u32 frameEndTime;
 extern bool onionSkinEnable;
 Animation animation;
 
+size_t extraRamSize = 0;
+bool hasExtraRam;
+DTCM_DATA bool enableSDcardCache;
+void *extraRamBuffer;
+
+#ifdef DSiMode
+bool DSiRam = 0;
+#endif
+
+void initAnimation(){
+    //básicamente aquí asignamos la memoria extra
+    hasExtraRam = false;enableSDcardCache = true;
+    size_t size = 0;
+    
+    if(peripheralSlot2InitDefault()){
+        extraRamBuffer = peripheralSlot2RamStart();
+        extraRamSize = peripheralSlot2RamSize();
+        sysSetCartOwner(true);
+        if(extraRamBuffer != NULL && extraRamSize > 0){
+            hasExtraRam = true;
+            enableSDcardCache = false;
+            return;
+        }
+    }
+    #ifdef DSiMode
+    if(isDSiMode()){
+        size = 12579840;//número más cercano a 12mb en el que caben frames sin pasarse.
+        extraRamBuffer = malloc(size);
+        if(extraRamBuffer != NULL){
+            DSiRam = true;
+            hasExtraRam = true;
+            enableSDcardCache = false;
+            extraRamSize = size;
+        }
+        return;
+    }
+    #endif
+}
+void enableSDcache(){
+    FILE *f = fopen(ANIM_TEMP, "wb");
+    if (!f)
+        return;
+
+    const long fileSize = ((2<<surf.w<<surf.h)+PALETTE_SIZE)*animation.frames;
+    fwrite(extraRamBuffer, 1, fileSize, f);
+    fclose(f);
+
+    #ifdef DSiMode
+    if(DSiRam){
+        free(extraRamBuffer);
+    }
+    #endif
+    enableSDcardCache = true;
+    extraRamSize = 0;
+}
 void loadAnimFrame(u16 *surface){
 
     if (!animation.isPlaying && onionSkinEnable == true) {
@@ -37,44 +92,62 @@ void loadAnimFrame(u16 *surface){
         memcpy(dst, src, 128*128*2);
     }
 
-    const int pixSize = 2 << surf.w << surf.h;
-    const int blkSize = pixSize + PALETTE_SIZE;
-
-
-    if(!animation.isPlaying){
-        animationFile = fopen(ANIM_TEMP, "rb");
-        if (!animationFile)
-            return;
-        fseek(animationFile, (long)animation.pos * blkSize, SEEK_SET);
-    }
-    else{
-        if(animation.pos == 0){
-            fseek(animationFile,0,SEEK_SET);
-        }
-    }
+    const u32 screenSize = 2<<surf.w<<surf.h;
+    const u32 blkSize = screenSize + PALETTE_SIZE;
+    const long offset = animation.pos*blkSize;
     
-    fread(surface, 1, pixSize, animationFile);      // píxeles
-    fread(palette, 1, PALETTE_SIZE, animationFile); // paleta del frame
 
-    if(!animation.isPlaying)
-        fclose(animationFile);
+    if(enableSDcardCache){
+        if(!animation.isPlaying){
+            animationFile = fopen(ANIM_TEMP, "rb");
+            if (!animationFile)
+                return;
+            fseek(animationFile, offset, SEEK_SET);
+        }
+        else{
+            if(animation.pos == 0){
+                fseek(animationFile,0,SEEK_SET);
+            }
+        }
+        
+        fread(surface, 1, screenSize, animationFile);      // píxeles
+        fread(palette, 1, PALETTE_SIZE, animationFile); // paleta del frame
+
+        if(!animation.isPlaying)
+            fclose(animationFile);
+    }else{
+        dmaCopyAsynch(extraRamBuffer+offset, surface, screenSize);
+        dmaCopyAsynch(extraRamBuffer+offset+screenSize, palette, PALETTE_SIZE);
+    }
 }
 
 void saveAnimFrame()
 {
-    FILE *f = fopen(ANIM_TEMP, "r+b");
-    if (!f)
-        f = fopen(ANIM_TEMP, "wb");
-    if (!f)
-        return;
+    const u32 screenSize = 2<<surf.w<<surf.h;
+    const u32 blkSize = screenSize + PALETTE_SIZE;
+    const long offset = animation.pos*blkSize;
 
-    int pixSize = 2 << surf.w << surf.h;
-    int blkSize = pixSize + PALETTE_SIZE;
+    if(enableSDcardCache){
+        FILE *f = fopen(ANIM_TEMP, "r+b");
+        if (!f)
+            f = fopen(ANIM_TEMP, "wb");
+        if (!f)
+            return;
 
-    fseek(f, (long)animation.pos * blkSize, SEEK_SET);
-    fwrite(surface, 1, pixSize, f);     // píxeles
-    fwrite(palette, 1, PALETTE_SIZE, f);// paleta del frame
-    fclose(f);
+        fseek(f, offset, SEEK_SET);
+        fwrite(surface, 1, screenSize, f);
+        fwrite(palette, 1, PALETTE_SIZE, f);
+        fclose(f);
+    }else{
+        //primero vemos si hay espacio suficiente en RAM
+        if(offset+blkSize > extraRamSize){
+            enableSDcache();
+        }else{
+            //hay espacio, copiamos sin problema
+            dmaCopyAsynch(surface,extraRamBuffer+offset,screenSize);
+            dmaCopyAsynch(palette,extraRamBuffer+offset+screenSize, PALETTE_SIZE);
+        }
+    }
 }
 
 void nextAnimFrame()
@@ -124,17 +197,23 @@ void deleteAnimFrame()
     //esto va a eliminar el último frame
     animation.pos = animation.frames;
 
-    FILE *f = fopen(ANIM_TEMP, "rb");
-    if (!f)
-        return;
+    if(enableSDcardCache){
+        /*
+        Consideré ni poner esta parte para que la SD tenga
+        aún menos cambios, pero preferí dejarlo así por si acaso
+        */
+        FILE *f = fopen(ANIM_TEMP, "rb");
+        if (!f)
+            return;
 
-    int fd = fileno(f);
+        int fd = fileno(f);
 
-    int pixSize = 2 << surf.w << surf.h;
-    int blkSize = pixSize + PALETTE_SIZE;
+        const int blkSize = (2 << surf.w << surf.h) + PALETTE_SIZE;
 
-    ftruncate(fd, ((long)animation.pos * blkSize)-1); // deja el archivo en 1024 bytes
-    fclose(f);
+        ftruncate(fd, ((long)animation.pos * blkSize)-1);
+        fclose(f);
+    }
+    //limpiar con ceros? nah, no gastemos más energía lol
     animation.frames--;
     animation.pos = animation.frames;
     loadAnimFrame(surface);
@@ -180,12 +259,13 @@ void playAnimation()//solo hace un preview de la animación
     for(int i = 0; i < 256; i++){
         palcpy[i] =  palette[i];
     }
-    animationFile = fopen(ANIM_TEMP, "rb");
-    if (!animationFile)
-        return;
+    if(enableSDcardCache){
+        animationFile = fopen(ANIM_TEMP, "rb");
+        if (!animationFile)
+            return;
+    }
     while(animation.isPlaying)
     {
-        wavStreamUpdate();
         animation.pos++;
         if (animation.pos > animation.frames)
             animation.pos = 0;
@@ -205,6 +285,7 @@ void playAnimation()//solo hace un preview de la animación
                 }
                 return;
             }
+            wavStreamUpdate();
             timerStop();
             swiWaitForVBlank();
             timerContinue();
@@ -232,5 +313,7 @@ void playAnimation()//solo hace un preview de la animación
         timerReset();
         frameStartTime = timerRead();
     }
-    fclose(animationFile);
+    if(enableSDcardCache){
+        fclose(animationFile);
+    }
 }

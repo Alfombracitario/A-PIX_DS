@@ -1,18 +1,18 @@
 /*
     ADVERTENCIA: este será el código con más bitshifts y comentarios inecesarios que verás, suerte tratando de entender algo!
      -Alfombracitario, Septiembre de 2025
+
+    Sigo trabajando en este proyecto
+     -Alfombracitario, Septiembre de 2026
 */
 
 /*
     To-Do list (para v1.0):
     reordenamiento de código (en proceso)
-    añadir figuras (dos pasos)
-        rectangulo
-        circulo
-        línea
-
+    256x
+    micrófono
     select tool
-    move
+    ya falta poco!
 */
 
 #include <nds.h>
@@ -73,6 +73,7 @@
 #define isAudioSyncOamId 102
 #define isClipboardOamId 103
 #define isOnionSkinOamId 104
+#define isExpandPreviewOamId 105
 
 #define gridOamId 0
 
@@ -135,6 +136,7 @@ bool usesPages = false;
 bool moveCanvas = false;
 bool repeatCanvas = false;
 bool imgChanges = false;
+bool expandPreview = false;
 
 u8 DTCM_DATA palEdit[3];
 
@@ -673,7 +675,9 @@ ITCM_CODE void updatePreviewGfx(){
     //reiniciamos visualmente todo
     u16 color = AVinvertColor(palette[paletteOffset]);
     dmaFillWords(0,gfxSelectedZone, 64 * 64 * 2);
-
+    if(expandPreview == true){
+        return;
+    }
     if(surf.z > 0){
         const int _size = 1<<(7-surf.z);
 
@@ -1136,9 +1140,28 @@ void updateIsActiveOam(){
         gfx16,
         -1,
         false, false, false, false, false);
+    oamSet(&oamSub, isExpandPreviewOamId,
+        192, 176,
+        0, expandPreview,
+        SpriteSize_16x16, SpriteColorFormat_Bmp,
+        gfx16,
+        -1,
+        false, false, false, false, false);
     oamUpdate(&oamSub);
 }
-
+void scalePreviewBG() {
+    if(expandPreview){//The worst way to scale an image!
+        //I added this for people who want to preview their art in 4:3, I'm not that weird.
+        bgSetScale(3,surf.fh,(surf.fh)+(surf.fw>>2)+(surf.fw>>4));
+        bgSetScroll(3, 0, 0);
+    }else{
+        previewXoffset = (SCREEN_W-(surf.fw))>>1;
+        previewYoffset = (SCREEN_H-(surf.fh))>>1;
+        bgSetScale(3, 256, 256);
+        bgSetScroll(3, -previewXoffset, -previewYoffset);
+    }
+    bgUpdate();
+}
 void setEditorSprites()
 {
     static bool initSprites = true;
@@ -1390,6 +1413,7 @@ void backupRead()
     dmaCopyHalfWordsAsynch(2, backup + index, surface, backupSize * sizeof(u16));
     accurate = true;
 }
+
 //====================================================================Compatibilidad con modos gráficos====================================|
 void textMode()
 {
@@ -1405,10 +1429,10 @@ void textMode()
         const u8 o = (r+g+b)>>4;
         pixelsTopVRAM[i] = (o<<10)|(o<<5)|(o)|0x8000;
     }
-    consoleClear();
     oamClear(&oamSub, 0, 128);
     oamUpdate(&oamSub);
 }
+
 extern u16* orig;
 extern int count;
 void settingsMode(){
@@ -1528,6 +1552,7 @@ void bitmapMode()
     drawSurfaceBottom();
     updateIsActiveOam();
     drawColorPalette();
+    scalePreviewBG();
 }
 
 #ifdef DEBUG_CPU
@@ -1566,7 +1591,10 @@ void drawInfo()
     else{
         _cpuDebugIterations++;
     }
+    printf("\nExt RAM:%d",extraRamSize);
+    printf("\n%d",enableSDcardCache);
     timerContinue();
+
 #endif
     
     if (animation.frames != 0) {
@@ -1825,10 +1853,10 @@ void applyTool(int x, int y, bool dragging)
         break;
     }
 }
-
 //====================================================================MAIN==================================================================================================================|
 int main(int argc, char *argv[])
 {
+
     defaultExceptionHandler(); // Mostrar crasheos
     // Intentar montar la SD
     // Intentar montar primero con DLDI (para flashcards DS/DS Lite)
@@ -1896,7 +1924,7 @@ int main(int argc, char *argv[])
             }
         }
     }
-    
+    initAnimation();
     initGradient();
     initBitmap();
     #ifdef DEBUG_CPU
@@ -2473,6 +2501,13 @@ int main(int argc, char *argv[])
                         drawColorPalette();
                         updatePal(0, &palettePos);
                         drawSurfaceMain();
+                    break;
+
+                    case 12:
+                        expandPreview = !expandPreview;
+                        updatePreviewGfx();
+                        scalePreviewBG();
+                        updateIsActiveOam();
                     break;
 
                     case 13:

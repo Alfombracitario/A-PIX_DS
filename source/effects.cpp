@@ -54,7 +54,7 @@ inline void indexedToDirect(){
         surface[i] = palette[surface[i]];
     }
 }
-//test de ahora, luego veo de dónde saco toda esta memoria (usando backup)
+//Intenté tirar esto a backup pero está difícil...
 static u16 temp[65536];
 static u8 remapTable[32768];// Tabla de remapeo separada
 ITCM_CODE void posterize(int numColors) {
@@ -155,7 +155,7 @@ bool applyEffect(EffectId id)
         count = 256;
         pixels = palette;//destino
     }
-    //sí, medio sucio pero esta parte está llena de placeholders lol
+    //sí, medio sucio pero esta parte está llena de placeholders lol (que al final no terminan siendo placeholders)
     int param = effects[id].paramValue;
 
     switch(id){
@@ -351,13 +351,17 @@ bool applyEffect(EffectId id)
         }
         #ifdef DSiMode
         case EFFECT_CAMERA: {
-            paletteBpp = 16;
-            photoPreview();
+            if(isDSiMode()){
+                paletteBpp = 16;
+                photoPreview();
+            }
         }
         break;
         case EFFECT_VIDEO: {
-            paletteBpp = 16;
-            videoRecord();
+            if(isDSiMode()){
+                paletteBpp = 16;
+                videoRecord();
+            }
         }
         break;
         #endif
