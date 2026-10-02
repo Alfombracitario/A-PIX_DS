@@ -149,6 +149,10 @@ Your suggestions is what makes this app better!
 
 **Special thanks to:**  
 - **AntonioND** – for creating [BlocksDS](https://github.com/blocksds/sdk), the amazing development kit that made this project possible.
+- https://blocksds.skylyrac.net/tutorial/basic/ This nice tutorial helped me a lot to make this app and I used some examples from here!
+**Libraries used**
+- https://lodev.org/lodepng/
+- https://giflib.sourceforge.net
 
 ---
 
