@@ -55,11 +55,12 @@ int exportGIF(const char *filename);
 #define formatAnim      10
 #define formatPAL       11
 #define formatPal1555   12
-#define formatACSnopal  13
-#define formatACSpal    14
+#define formatACSanim   13
+#define formatACSnopal  14
+#define formatACSpal    15
 
-#define MaxFormats 15
-#define extraSaveFormats 2
+#define MaxFormats 16
+#define extraSaveFormats 3
 const char texts[MaxFormats][16]={
     ".acs",
     ".png",
@@ -74,6 +75,7 @@ const char texts[MaxFormats][16]={
     ".raw",
     ".pal[YY-CHR]",
     ".pal[1555]",
+    ".acs[Anim]",
     ".acs[only img]",
     ".acs[only pal]"
 };
@@ -91,6 +93,7 @@ const char formats[MaxFormats][6] = {
     ".raw",
     ".pal",
     ".pal",
+    ".acs",
     ".acs",
     ".acs"
 };

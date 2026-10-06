@@ -1303,19 +1303,30 @@ void exportAnim(const char *path){
 
 void importAnim(const char *path){
     if(!preview){
+        animation.pos = 0;
         if(enableSDcardCache){
-        animation.frames = copyFile(path,ANIM_TEMP);
-        loadAnimFrame(surface);
+            animation.frames = copyFile(path,ANIM_TEMP);
+            loadAnimFrame(surface);
         }else{
             FILE *f = fopen(path, "rb");
-            const int dataSize = ftell(f);
+            if(!f){
+                printf("File not oppened!");
+                return;
+            }
+            fseek(f, 0, SEEK_END);
+            const long dataSize = ftell(f);
             if(dataSize <= extraRamSize){
                 animation.frames = dataSize/((surfaceSizeVRAM << 1) + 512);
+                printf("Using RAM");
                 fread(extraRamBuffer, 1, dataSize, f);
+                fclose(f);
             }else{
+                printf("Using SD card");
                 animation.frames = 0;
                 enableSDcache();
-                importAnim(path);
+                fclose(f);
+                animation.frames = copyFile(path,ANIM_TEMP);
+                loadAnimFrame(surface);
             }
         }
     }

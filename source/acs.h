@@ -13,10 +13,19 @@ struct AcsReader
 {
     const u8* data;
     size_t    fileSize;
-    size_t    headerPos;
+    size_t    readerPos;
 
     bool hasPalette;
+    bool hasImage;
+
+    //animación
     bool hasAnimation;
+    bool hasWindow;
+
+    u16 windowWidth;
+    u16 windowHeight;
+    u16 offsetWidth;
+    u16 offsetHeight;
 
     u16 width, height;
     u32 pixelCount;

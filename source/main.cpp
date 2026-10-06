@@ -62,7 +62,9 @@
 // OAM
 #define selector24oamID 64
 #define brushSettingsOamId 24
+#define bucketSettingsOamId 31
 #define brushSettingsSelectorOamId 22
+#define bucketSettingsSelectorOamId 30
 #define selector16oamId 64
 #define rgbSliderOamId 66
 #define paletteOamId 26
@@ -74,6 +76,8 @@
 #define isClipboardOamId 103
 #define isOnionSkinOamId 104
 #define isExpandPreviewOamId 105
+#define frameDigitsOamId 117//9 dígitos nnnn/nnnn
+#define animFpsOamId 126//2 dígitos
 
 #define gridOamId 0
 
@@ -96,6 +100,7 @@ u16 backup[BACKUP_SIZE];
 u16 onionSkin[surfaceSize];
 
 u16 gradientTable[SCREEN_H];
+u8 framesDigits[9] = {0,0,0,0,10,0,0,0,0}; // nnnn/nnnn
 
 u16 *gfx32;
 u16 *gfx16;
@@ -106,6 +111,11 @@ u16 *gfxPalette;
 u16 *gfx5;
 u16 *gfxGrid;
 u16 *gfxSelectedZone;
+u16 *gfxBucketSettings;
+u16 *gfxBrushSettings;
+u16 *gfx8;
+u16 *gfxNum[11];
+
 u8 paletteAlpha = MAX_ALPHA; // indicador del alpha actual, útil para 16bpp
 // ideal añadir un array para guardar más frames
 
@@ -135,7 +145,7 @@ bool nesMode = false;
 bool usesPages = false;
 bool moveCanvas = false;
 bool repeatCanvas = false;
-bool imgChanges = false;
+bool imgChanges = true;
 bool expandPreview = false;
 
 u8 DTCM_DATA palEdit[3];
@@ -205,6 +215,7 @@ int fileOffset = 0;
 int gridSkips = 0;
 bool rPressed = false;
 bool showBrushSettings = false;
+bool showBucketSettings = false;
 bool preview = true;
 bool redraw = true;
 
@@ -271,6 +282,10 @@ ConsoleFont font = {
     .numChars = fontTilesLen >> 5,
 };
 
+//variables muy random
+static u8 s24x = 0;
+static u8 s24y = 16;
+
 #define RM 31
 #define GM (31<<5)
 #define BM (31<<10)
@@ -291,7 +306,6 @@ u16 mergeColor(u16 o, u16 n){
 // FUNCIONES
 void submitVRAM(bool _accurate = false, bool _wait = true)
 {
-
     if (paletteBpp != 16)
     {
         if (_accurate)
@@ -357,7 +371,6 @@ void initGradient()
         gradientTable[i] = color;
         gradientTable[SCREEN_H - i] = color;
     }
-    //pequeña probabilidad de que el gradiente se invierta de colores :>
     irqSet(IRQ_VBLANK, vblank_handler); // configurar HDMA
 }
 ITCM_CODE bool brushPatternPass(int x, int y, BrushMode mode)
@@ -1054,8 +1067,39 @@ void clearAll()
     }
 }
 
-u16 *gfxBrushSettings;
-u16 *gfx8;
+void drawAnimationPos(){
+    u16 frame = animation.pos;
+    framesDigits[3] = frame % 10; frame /= 10;
+    framesDigits[2] = frame % 10; frame /= 10;
+    framesDigits[1] = frame % 10; frame /= 10;
+    framesDigits[0] = frame % 10;
+    for(int i = 0; i < 4; i++){
+        oamSetGfx(&oamSub, frameDigitsOamId + i, SpriteSize_8x8,
+                  SpriteColorFormat_Bmp, gfxNum[framesDigits[i]]);
+    }
+    oamUpdate(&oamSub);
+}
+void drawAnimationFrames(){
+    u16 frame = animation.frames;
+    framesDigits[8] = frame % 10; frame /= 10;
+    framesDigits[7] = frame % 10; frame /= 10;
+    framesDigits[6] = frame % 10; frame /= 10;
+    framesDigits[5] = frame % 10;
+    for(int i = 5; i < 9; i++){
+        oamSetGfx(&oamSub, frameDigitsOamId + i, SpriteSize_8x8,
+                  SpriteColorFormat_Bmp, gfxNum[framesDigits[i]]);
+    }
+    oamUpdate(&oamSub);
+}
+void drawAnimationSpeed(){
+    u16 frame = 60/animation.speed;
+    oamSetGfx(&oamSub, animFpsOamId, SpriteSize_8x8,
+              SpriteColorFormat_Bmp, gfxNum[frame / 10]);
+    oamSetGfx(&oamSub, animFpsOamId+1, SpriteSize_8x8,
+              SpriteColorFormat_Bmp, gfxNum[frame % 10]);
+    oamUpdate(&oamSub);
+}
+
 void setBrushSettingsSprites(bool on)
 {
     showBrushSettings = on;
@@ -1080,6 +1124,28 @@ void setBrushSettingsSprites(bool on)
            ((int)brushSize << 3) + 16, 40,          // posición
            0,                                       // prioridad
            on,                                      // opaco
+           SpriteSize_8x8, SpriteColorFormat_Bmp,
+           gfx8,
+           -1,
+           false, false, false, false, false);
+    oamUpdate(&oamSub);
+}
+void setBucketSettingsSprites(bool on)
+{
+    showBucketSettings = on;
+    oamSet(&oamSub, bucketSettingsOamId,
+           0, 56,                       // posición
+           0,                           // prioridad
+           on,                          // opaco
+           SpriteSize_32x8, SpriteColorFormat_Bmp,
+           gfxBucketSettings,
+           -1,
+           false, false, false, false, false);
+
+    oamSet(&oamSub, bucketSettingsSelectorOamId,
+           bucketMode << 3, 56,      // posición
+           0,                                   // prioridad
+           on,                                  // opaco
            SpriteSize_8x8, SpriteColorFormat_Bmp,
            gfx8,
            -1,
@@ -1183,12 +1249,17 @@ void setEditorSprites()
         gfx8 = oamAllocateGfx(&oamSub, SpriteSize_8x8, SpriteColorFormat_Bmp);
         gfx5 = oamAllocateGfx(&oamSub, SpriteSize_8x8, SpriteColorFormat_Bmp);
         gfxBrushSettings = oamAllocateGfx(&oamSub, SpriteSize_32x16, SpriteColorFormat_Bmp);
+        gfxBucketSettings = oamAllocateGfx(&oamSub, SpriteSize_32x8, SpriteColorFormat_Bmp);
         gfxRGBsliders = oamAllocateGfx(&oamSub, SpriteSize_64x32, SpriteColorFormat_Bmp);
         gfxRgbSliderSel = oamAllocateGfx(&oamSub, SpriteSize_8x8, SpriteColorFormat_Bmp);
         gfxGrid = oamAllocateGfx(&oamSub, SpriteSize_64x64, SpriteColorFormat_Bmp);
         dmaFillWords(0, gfxGrid, 64 * 64 * 2);
         gfxSelectedZone = oamAllocateGfx(&oamMain, SpriteSize_64x64, SpriteColorFormat_Bmp);
         gfxBG = oamAllocateGfx(&oamSub, SpriteSize_32x32, SpriteColorFormat_Bmp);
+
+        for(int i = 0; i<11;i++){
+            gfxNum[i] = oamAllocateGfx(&oamSub, SpriteSize_8x8, SpriteColorFormat_Bmp);
+        }
         if (!nitroFSInit(NULL))
             return;//ojalá que no falle
 
@@ -1200,13 +1271,28 @@ void setEditorSprites()
         importACS16("nitro:/rgbSliders.acs",gfxRGBsliders,stack);
         importACS16("nitro:/rgbSliderSel.acs",gfxRgbSliderSel,stack);
         importACS16("nitro:/rgbSliderSel.acs",gfxRgbSliderSel,stack);
-        
+        importACS16("nitro:/bucketSettings.acs",gfxBucketSettings,stack);
+
+        importACS16("nitro:/0.acs",gfxNum[0],stack);
+        importACS16("nitro:/1.acs",gfxNum[1],stack);
+        importACS16("nitro:/2.acs",gfxNum[2],stack);
+        importACS16("nitro:/3.acs",gfxNum[3],stack);
+        importACS16("nitro:/4.acs",gfxNum[4],stack);
+        importACS16("nitro:/5.acs",gfxNum[5],stack);
+        importACS16("nitro:/6.acs",gfxNum[6],stack);
+        importACS16("nitro:/7.acs",gfxNum[7],stack);
+        importACS16("nitro:/8.acs",gfxNum[8],stack);
+        importACS16("nitro:/9.acs",gfxNum[9],stack);
+        importACS16("nitro:/slash.acs",gfxNum[10],stack);
+
         nitroFSExit();
         fsRestore(device,path);
-        
+        //random
+        showBrushSettings = true;
+        framesDigits[4] = 10;
     }
-    updatePal(0,&palettePos);
     initSprites = false;
+    updatePal(0,&palettePos);
 
     oamSet(&oamSub, paletteOamId,
            192, 64,
@@ -1323,9 +1409,36 @@ void setEditorSprites()
         gfxGrid,
         -1,
         false, false, false, false, false);
+    
+    for(int i = 0; i<9;i++){
+        oamSet(&oamSub, frameDigitsOamId+i,
+           i<<2, 178,
+           0,
+           15,
+           SpriteSize_8x8, SpriteColorFormat_Bmp,
+           gfxNum[framesDigits[i]],
+           -1,
+           false, false, false, false, false);
+    }
 
+    for(int i = 0; i<2;i++){
+        oamSet(&oamSub, animFpsOamId+i,
+           34+(i<<2), 186,
+           0,
+           15,
+           SpriteSize_8x8, SpriteColorFormat_Bmp,
+           gfxNum[0],
+           -1,
+           false, false, false, false, false);
+    }
+
+    drawAnimationFrames();
+    drawAnimationPos();
+    drawAnimationSpeed();
+    oamSetXY(&oamSub, selector24oamID,s24x,s24y);
     setOamBG();
-    setBrushSettingsSprites(true);
+    setBrushSettingsSprites(showBrushSettings);
+    setBucketSettingsSprites(showBucketSettings);
     updatePreviewPos();
     updatePreviewGfx();
 }
@@ -1570,13 +1683,10 @@ inline void calculateCpuUsage(u64 ticks)
     REG_DIVCNT = 0;  // Iniciar división
 }
 #endif
-const char bucketText[2][6] = {"Color", "Index"};
 void drawInfo()
 {
-    // Guardar posición del cursor y moverlo al inicio (fila 0, columna 0)
-    printf("\033[s\033[H");
-    
 #ifdef DEBUG_CPU
+    printf("\033[s\033[H");
     calculateCpuUsage(frameEndTime - frameStartTime);
     timerStop();
     if(cpuUsage > maxCpu){
@@ -1594,19 +1704,10 @@ void drawInfo()
     printf("\nExt RAM:%d",extraRamSize);
     printf("\n%d",enableSDcardCache);
     timerContinue();
-
 #endif
-    
-    if (animation.frames != 0) {
-        printf("\n\033[Kframe: %d / %d \nanim speed: %d  ", 
-               animation.pos, animation.frames, animation.speed);
-    }
-
-    if (bucketMode != 0) {
-        printf("\n\033[KBucket: replace %s", bucketText[bucketMode - 1]);
-    }
-    printf("\033[u");
 }
+
+
 //============================================================= SD CARD ===============================================|
 
 void createAppFolder(){
@@ -2149,7 +2250,7 @@ int main(int argc, char *argv[])
                     // apunta a los botones de abajo
                     int row = (touch.py - SURFACE_H) >> 4;
                     int col = (touch.px - SURFACE_X) >> 4;
-                    // PLACEHOLDER
+
                     if (row == 3 && (stylusPressed == false || stylusRepeat == true))
                     {
                         stylusPressed = true;
@@ -2157,14 +2258,19 @@ int main(int argc, char *argv[])
                         {
                         case 0: // delete frame
                             deleteAnimFrame();
+                            drawAnimationFrames();
+                            drawAnimationPos();
                             break;
 
                         case 1: // add frame
                             insertAnimFrame();
+                            drawAnimationFrames();
+                            drawAnimationPos();
                             break;
 
                         case 2: // prev frame
                             prevAnimFrame();
+                            drawAnimationPos();
                             break;
 
                         case 3: // play animation
@@ -2175,15 +2281,18 @@ int main(int argc, char *argv[])
 
                         case 5: // next frame
                             nextAnimFrame();
+                            drawAnimationPos();
                             break;
 
                         case 6: // less speed
                             if (animation.speed > 1)
                                 animation.speed--;
+                            drawAnimationSpeed();
                             break;
 
                         case 7: // more speed
                             animation.speed++;
+                            drawAnimationSpeed();
                             break;
                         }
                     }
@@ -2198,7 +2307,8 @@ int main(int argc, char *argv[])
             if (touch.px < 64) // apunta a la parte izquierda
             {
                 if (touch.px < 48 && touch.py > 16 && touch.py < 64 && stylusPressed == false) // herramientas
-                {
+                {   
+                    //sé que está realmente horrible hardcodeado.
                     if (showBrushSettings && touch.px >= 16 && touch.px < 48 && touch.py >= 32 && touch.py < 48)
                     { // si está en modo configurar brush
                         int col = (touch.px - 16) >> 3;
@@ -2217,30 +2327,26 @@ int main(int argc, char *argv[])
                         setBrushSettingsSprites(true);
                         goto frameEnd;
                     }
+                    if (showBucketSettings && touch.px < 48 && touch.py >= 56 && touch.py < 64)
+                    {
+                        setBucketSettingsSprites(true);
+                        bucketMode = (touch.px>>3);
+                        goto frameEnd;
+                    }
+                    setBucketSettingsSprites(false);
+                    setBrushSettingsSprites(false);
                     int col = touch.px > 24 ? 1 : 0;
                     int row = touch.py > 40 ? 2 : 0;
                     // convertir col+row a un valor único
                     ToolType prevTool = currentTool;
                     currentTool = (ToolType)(row + col);
-                    if (currentTool == prevTool && currentTool == TOOL_BUCKET)
-                    {
-                        bucketMode++;
-                        if (bucketMode > 2)
-                        {
-                            bucketMode = 0;
-                        }
-                        consoleClear();
-                    }
-                    if (currentTool == TOOL_BRUSH)
-                    {
-                        setBrushSettingsSprites(true);
-                    }
-                    else
-                    {
-                        setBrushSettingsSprites(false);
+                    if(currentTool == TOOL_BUCKET){
+                        setBucketSettingsSprites(true);
                     }
                     // además dibujamos un contorno en dónde seleccionamos
-                    oamSetXY(&oamSub, selector24oamID, col * 24, (row * 12) + 16);
+                    s24x = col*24;
+                    s24y = (row * 12) + 16;
+                    oamSetXY(&oamSub, selector24oamID,s24x,s24y);
                     oamUpdate(&oamSub);
                     stylusPressed = true;
                     goto frameEnd;
@@ -2299,6 +2405,7 @@ int main(int argc, char *argv[])
                         }
                         updateIsActiveOam();
                         stylusPressed = true;
+                        imgChanges = true;
                         goto frameEnd;
                     }
                     if(touch.py >= 64 && (stylusPressed == false || stylusRepeat == true))
@@ -2582,6 +2689,7 @@ int main(int argc, char *argv[])
         #endif
         if (updated)
         { // llamar a submitVRAM solo si se modificó algo visual
+            imgChanges = true;
             submitVRAM(accurate);
         }
         updated = false;

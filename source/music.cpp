@@ -5,7 +5,7 @@
 #include <string.h>
 #include "formatsglobals.h"
 #include "music.h"
-
+#include "nds/system.h"
 extern int totalBackups;
 extern int oldestBackup;
 extern int backupIndex;
@@ -278,6 +278,7 @@ bool wavPlay(const char* path) {
     mmStreamOpen(&activeStream);
     wavPlaying = true;
     disableSleep();
+    powerOn(PM_SOUND_AMP);
     return wavPlaying;
 }
 
@@ -298,19 +299,21 @@ void wavStop() {
     stream_buffer_available = 0;
 
     enableSleep();
+    powerOff(PM_SOUND_AMP);
 }
 
 void wavContinue(){
     wavPlay(musicPath);
 }
 // Llena el buffer y comprueba si el WAV terminó
-void wavStreamUpdate() {
+ITCM_CODE void wavStreamUpdate() {
     if (!wavFile)
         return;
 
     if (keysHeld() & KEY_LID) {
-        systemSetBacklightLevel(PM_BACKLIGHT_OFF);
-
+        powerOff(POWER_LCD);
+        powerOff(PM_SOUND_MUTE);//solo suenan los audífonos
+        setCpuClock(false);//downclock
         //Bucle interno para seguir reproduciendo música
         while (keysHeld() & KEY_LID) {
             wavStreamFillBuffer(false);
@@ -318,7 +321,9 @@ void wavStreamUpdate() {
             scanKeys();
         }
         //ya se abrió, restauramos
-        systemSetBacklightLevel(1);
+        setCpuClock(true);
+        powerOn(PM_SOUND_MUTE);
+        powerOn(POWER_LCD);
     }
 
     wavStreamFillBuffer(false);

@@ -91,7 +91,7 @@ int videoRecord(){
         scanKeys();
         kDown = keysDown();
 
-        if(kDown & KEY_A || kDown & KEY_B){            
+        if(kDown & KEY_A || kDown & KEY_B){
             break;
         }
         cameraStopTransfer();

@@ -8,12 +8,20 @@
 #define ACScolModeGrayScale4 4
 #define ACStotalModes 5
 
-#define ACStypeusesPalette    1
-#define ACStypeIsAnimated    (1<<1)//para algún futuro
+#define ACStypeusesPalette   (1<<0)
+#define ACStypeIsAnimated    (1<<1)
 
 #define ACSmirror 01
 #define ACSpattern 00
 #define ACSrepeat 1
+
+
+#define animNewHeader (1<<0)
+#define animUseWindow (1<<1)
+#define animNewPal    (1<<2)
+#define animNewImg    (1<<3)
+#define animExtOffset (1<<4)//usa 2 bytes para indicar offsets?
+
 
 static inline uint32_t log2(uint32_t x) {
     uint32_t r = 0;
@@ -159,11 +167,12 @@ static bool acsLoadFile(const char* path)
 static bool acsReadHeader()
 {
     const u8* d   = acs.data;
-    size_t&   pos = acs.headerPos;
+    size_t&   pos = acs.readerPos;
 
     // ---------- byte 0: versión y flags ----------
-    acs.hasPalette = (d[0] & ACStypeusesPalette);
-    pos = 1;
+    acs.hasPalette = (d[pos] & ACStypeusesPalette);
+    acs.hasAnimation = (d[pos] & ACStypeIsAnimated);
+    pos++;
 
     // ---------- byte 1: resolución ----------
     static const int resTable[16] = {
@@ -203,7 +212,7 @@ static bool acsReadHeader()
 static void acsReadPalette(u16* pal)
 {
     const u8* d   = acs.data;
-    size_t&   pos = acs.headerPos;
+    size_t&   pos = acs.readerPos;
     const int count = acs.paletteSize;
 
     switch(acs.colorMode){
@@ -257,7 +266,7 @@ static void acsReadPalette(u16* pal)
 static void acsSetupBlocks()
 {
     const u8* d   = acs.data;
-    size_t&   pos = acs.headerPos;
+    size_t&   pos = acs.readerPos;
 
     acs.ctrlBlockBytes = acsReadU16BE(d + pos); pos += 2;
     acs.cmdBlockBytes  = acsReadU16BE(d + pos); pos += 2;
@@ -381,7 +390,7 @@ static void acsDecodeIndexed(u16* surface)
 static void acsDecodeDirect(u16* surface)
 {
     const u8* d   = acs.data;
-    size_t&   pos = acs.headerPos;
+    size_t&   pos = acs.readerPos;
     const int total = (int)acs.pixelCount;
 
     acs.bitsPerPixel = 16;
@@ -440,7 +449,6 @@ void importACS(const char* path, u16* surface, u16* pal)
 
     // ---------- MODO INDEXADO ----------
     if(acs.paletteSize > 0){
-
         if(acs.hasPalette) acsReadPalette(pal);
 
         // modo oculto solo-paleta
@@ -460,10 +468,60 @@ void importACS(const char* path, u16* surface, u16* pal)
     paletteBpp = acs.bitsPerPixel;
 }
 
+static void acsReadAnimHeader()
+{
+    const u8* d   = acs.data;
+    size_t&   pos = acs.readerPos;
+
+    acs.hasPalette = (d[pos] & animNewPal);
+    acs.hasImage = (d[pos] & animNewImg);
+    acs.hasWindow = (d[pos] & animUseWindow);
+    bool extendedOffset = (d[pos] & animExtOffset);
+
+    if(extendedOffset){
+        acs.windowWidth = (d[pos++]|(d[pos++]<<8));
+        acs.windowHeight= (d[pos++]|(d[pos++]<<8));
+        acs.offsetWidth = (d[pos++]|(d[pos++]<<8));
+        acs.offsetHeight= (d[pos++]|(d[pos++]<<8));
+    }else if(acs.hasWindow){
+        acs.windowWidth = (d[pos++]);
+        acs.windowHeight= (d[pos++]);
+        acs.offsetWidth = (d[pos++]);
+        acs.offsetHeight= (d[pos++]);
+    }
+    if(acs.hasPalette){
+        acs.paletteSize = (d[pos++]);
+    }
+    return;
+}
+//WIP
+void importACSanimFrame(const char* path, u16* surface, u16* pal){
+    const u8* d   = acs.data;
+    size_t&   pos = acs.readerPos;
+    acsReadAnimHeader();
+
+    if(acs.paletteSize > 0){
+        if(acs.hasPalette) acsReadPalette(pal);
+        acsSetupBlocks();
+        if(acs.hasWindow){
+            //decodificar con ventana
+        }else{
+            acsDecodeIndexed(surface);
+        }
+    } else {
+        if(acs.hasWindow){
+            //decodificar con ventana
+        }else{
+            acsDecodeDirect(surface);
+        }
+    }
+}
+
 void importACS16(const char* path, u16* surface, u16* pal)
 {//cargar para hardware 16bpp
     if(!acsLoadFile(path))  return;
     if(!acsReadHeader())    return;
+
 
     if(acs.paletteSize > 0){
 

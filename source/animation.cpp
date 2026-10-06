@@ -16,7 +16,7 @@ extern void drawSurfaceBottom();
 extern void drawSurfaceMain();
 extern int  updatePal(int increment, int *palettePos);
 extern void drawColorPalette();
-
+extern void drawAnimationPos();
 extern u16 onionSkin;
 extern int palettePos;
 extern u16 pixelsTop;
@@ -84,7 +84,9 @@ void enableSDcache(){
     extraRamSize = 0;
 }
 void loadAnimFrame(u16 *surface){
-
+    if(animation.pos > animation.frames){
+        return;
+    }
     if (!animation.isPlaying && onionSkinEnable == true) {
         u16 *dst = &onionSkin;
         u16 *src = &pixelsTop;
@@ -116,8 +118,8 @@ void loadAnimFrame(u16 *surface){
         if(!animation.isPlaying)
             fclose(animationFile);
     }else{
-        dmaCopyAsynch(extraRamBuffer+offset, surface, screenSize);
-        dmaCopyAsynch(extraRamBuffer+offset+screenSize, palette, PALETTE_SIZE);
+        dmaCopy(extraRamBuffer+offset, surface, screenSize);
+        memcpy(palette,extraRamBuffer+offset+screenSize, PALETTE_SIZE);
     }
 }
 
@@ -144,8 +146,8 @@ void saveAnimFrame()
             enableSDcache();
         }else{
             //hay espacio, copiamos sin problema
-            dmaCopyAsynch(surface,extraRamBuffer+offset,screenSize);
-            dmaCopyAsynch(palette,extraRamBuffer+offset+screenSize, PALETTE_SIZE);
+            memcpy(extraRamBuffer+offset,surface,screenSize);
+            memcpy(extraRamBuffer+offset+screenSize, palette, PALETTE_SIZE);
         }
     }
 }
@@ -269,6 +271,7 @@ void playAnimation()//solo hace un preview de la animación
         animation.pos++;
         if (animation.pos > animation.frames)
             animation.pos = 0;
+        drawAnimationPos();
         if(paletteBpp != 16){
             loadAnimFrame(stack);//cargamos antes para tener tiempo
         }
@@ -283,6 +286,7 @@ void playAnimation()//solo hace un preview de la animación
                 for(int i = 0; i < 256; i++){
                     palette[i] = palcpy[i];
                 }
+                drawAnimationPos();//recuperar posición
                 return;
             }
             wavStreamUpdate();
