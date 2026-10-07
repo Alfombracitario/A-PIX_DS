@@ -98,7 +98,6 @@ void loadAnimFrame(u16 *surface){
     const u32 blkSize = screenSize + PALETTE_SIZE;
     const long offset = animation.pos*blkSize;
     
-
     if(enableSDcardCache){
         if(!animation.isPlaying){
             animationFile = fopen(ANIM_TEMP, "rb");
@@ -290,9 +289,13 @@ void playAnimation()//solo hace un preview de la animación
                 return;
             }
             wavStreamUpdate();
+            #ifdef DEBUG_CPU
             timerStop();
             swiWaitForVBlank();
             timerContinue();
+            #else
+            swiWaitForVBlank();
+            #endif
         }
         if (paletteBpp == 16)
         {
@@ -312,10 +315,12 @@ void playAnimation()//solo hace un preview de la animación
             }
         }
 
+        #ifdef DEBUG_CPU
         frameEndTime = timerRead();
         drawInfo();
         timerReset();
         frameStartTime = timerRead();
+        #endif
     }
     if(enableSDcardCache){
         fclose(animationFile);

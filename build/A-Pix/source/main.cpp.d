@@ -71,7 +71,7 @@ build/A-Pix/source/main.cpp.o: source/main.cpp \
  source/avdslib.h source/intro.h source/animation.h source/music.h \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/maxmod/include/maxmod9.h \
  C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/maxmod/include/mm_types.h \
- source/tools.h build/A-Pix/graphics/GFXinput.h \
+ source/tools.h source/effects.h build/A-Pix/graphics/GFXinput.h \
  build/A-Pix/graphics/GFXconsoleInput.h \
  build/A-Pix/graphics/GFXnewImageInput.h
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/libnds/include/nds.h:
@@ -155,6 +155,7 @@ source/music.h:
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/maxmod/include/maxmod9.h:
 C:/msys64/opt/wonderful/thirdparty/blocksds/core/libs/maxmod/include/mm_types.h:
 source/tools.h:
+source/effects.h:
 build/A-Pix/graphics/GFXinput.h:
 build/A-Pix/graphics/GFXconsoleInput.h:
 build/A-Pix/graphics/GFXnewImageInput.h:

@@ -32,6 +32,6 @@ typedef struct {
 } EffectEntry;
 
 extern EffectEntry effects[EFFECT_COUNT];
-
+extern u8 effectCount;
 bool applyEffect(EffectId id);
 void posterize(int numColors);

@@ -1,5 +1,6 @@
 #include "formatsglobals.h"
 #include "animation.h"
+#include "camera.twl.h"
 
 #define CAMERA_NDMA_CHANNEL 1
 extern u32 kDown;

@@ -310,7 +310,7 @@ static void drawEffectsList(){
     consoleClear();
     printf("Settings");
     printf("\n????????????????????????????????\n");
-    for(int i = 0; i < EFFECT_COUNT; i++){
+    for(int i = 0; i < effectCount; i++){
         const EffectEntry* e = &effects[i];
         char cursor = (i == settingsSelector) ? '>' : ' ';
         printf("%c %s\n", cursor, e->name);
@@ -332,11 +332,11 @@ static bool handleSettings(){
         case SETTINGS_LIST: {
 
             if(kDown & KEY_UP){
-                settingsSelector = (settingsSelector - 1 + EFFECT_COUNT) % EFFECT_COUNT;
+                settingsSelector = (settingsSelector - 1 + effectCount) % effectCount;
                 updateSettings = true;
             }
             if(kDown & KEY_DOWN){
-                settingsSelector = (settingsSelector + 1) % EFFECT_COUNT;
+                settingsSelector = (settingsSelector + 1) % effectCount;
                 updateSettings = true;
             }
             if(kDown & KEY_A){

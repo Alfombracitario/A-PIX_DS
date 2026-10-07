@@ -6,7 +6,7 @@ LIBDIRS     := $(BLOCKSDS)/libs/maxmod
 
 NAME            := A-Pix
 GAME_TITLE      := A-Pix DS
-GAME_SUBTITLE   := 0.7
+GAME_SUBTITLE   := Beta 0.7 for jShop
 GAME_AUTHOR     := Alfombracitario
 GAME_ICON 		:= icon.gif
 

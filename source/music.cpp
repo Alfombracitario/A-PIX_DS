@@ -66,6 +66,13 @@ void initAudio(){
         .mem_bank     = 0,
         .fifo_channel = FIFO_MAXMOD
     };
+    //Mejorar el audio si estamos en modo DSi
+    #ifdef DSiMode
+        if(isDSiMode()){
+            soundExtSetFrequency(47);
+            //soundExtSetRatio(0);
+        }
+    #endif
     mmInit(&mmSys);
 }
 
@@ -363,7 +370,18 @@ void recordAudio(){
 
     
     DC_FlushAll();
+    #ifdef DSiMode
+    if(isDSiMode()){
+        soundMicPowerOn();
+    }
+    #endif
     soundMicRecord(backup, sizeof(backup),
                 MicFormat_12Bit, 16000, microphone_handler);
+    
     soundMicOff();
+    #ifdef DSiMode
+    if(isDSiMode()){
+        soundMicPowerOff();
+    }
+    #endif
 }

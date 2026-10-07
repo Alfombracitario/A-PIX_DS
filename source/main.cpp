@@ -34,6 +34,7 @@
 #include "music.h"
 #include "tools.h"
 #include "acs.h"
+#include "effects.h"
 
 #include "GFXinput.h"
 #include "GFXconsoleInput.h"
@@ -88,14 +89,14 @@
 static PrintConsole topConsole;
 static PrintConsole subConsole;
 
-u16 surface[surfaceSize];//lienzo principal, si pudiera lo metería a dtcm
+u16 surface[surfaceSize];//lienzo principal
 u16 *pixelsTopVRAM = (u16 *)BG_GFX;
 u16 *pixelsVRAM = (u16 *)BG_GFX_SUB;
 u16 *bgPreviewGfx = NULL;
 u16 pixelsTop[surfaceSize];// surface procesado en RAM.
-u16 DTCM_DATA palette[256]; // ram rápida sin cache miss, perfecto para acceso aleatorio de paletas
+u16 DTCM_DATA palette[256];
 
-u16 stack[surfaceSize]; // para operaciones temporales
+u16 stack[surfaceSize];// para operaciones temporales
 u16 backup[BACKUP_SIZE];
 u16 onionSkin[surfaceSize];
 
@@ -114,7 +115,7 @@ u16 *gfxSelectedZone;
 u16 *gfxBucketSettings;
 u16 *gfxBrushSettings;
 u16 *gfx8;
-u16 *gfxNum[11];
+u16 *gfxNum[12];
 
 u8 paletteAlpha = MAX_ALPHA; // indicador del alpha actual, útil para 16bpp
 // ideal añadir un array para guardar más frames
@@ -1066,31 +1067,42 @@ void clearAll()
         pixelsTopVRAM[i] = 0;
     }
 }
+#define EMPTY_DIGIT 11
 
-void drawAnimationPos(){
-    u16 frame = animation.pos;
-    framesDigits[3] = frame % 10; frame /= 10;
-    framesDigits[2] = frame % 10; frame /= 10;
-    framesDigits[1] = frame % 10; frame /= 10;
-    framesDigits[0] = frame % 10;
-    for(int i = 0; i < 4; i++){
-        oamSetGfx(&oamSub, frameDigitsOamId + i, SpriteSize_8x8,
-                  SpriteColorFormat_Bmp, gfxNum[framesDigits[i]]);
+static void formatDigits(u8 *digits, int count, u32 value) {
+    bool not0 = true;//No sé cómo nombrar esto de manera descriptiva
+    for (int i = 0; i < count; i++) {
+        u32 p = 1;
+        for (int j = 0; j < count - 1 - i; j++) p *= 10;
+        u16 d = (value / p) % 10;
+        if (not0 && d == 0 && i != count - 1) {
+            digits[i] = EMPTY_DIGIT;
+        } else {
+            digits[i] = d;
+            not0 = false;
+        }
+    }
+}
+
+void drawAnimationPos(void) {
+    formatDigits(&framesDigits[0], 4, animation.pos);
+    for (int i = 0; i < 4; i++) {
+        oamSetGfx(&oamSub, frameDigitsOamId + i,
+                  SpriteSize_8x8, SpriteColorFormat_Bmp,
+                  gfxNum[framesDigits[i]]);
     }
     oamUpdate(&oamSub);
 }
-void drawAnimationFrames(){
-    u16 frame = animation.frames;
-    framesDigits[8] = frame % 10; frame /= 10;
-    framesDigits[7] = frame % 10; frame /= 10;
-    framesDigits[6] = frame % 10; frame /= 10;
-    framesDigits[5] = frame % 10;
-    for(int i = 5; i < 9; i++){
-        oamSetGfx(&oamSub, frameDigitsOamId + i, SpriteSize_8x8,
-                  SpriteColorFormat_Bmp, gfxNum[framesDigits[i]]);
+void drawAnimationFrames(void){
+    formatDigits(&framesDigits[5], 4, animation.frames);
+    for (int i = 5; i < 9; i++) {
+        oamSetGfx(&oamSub, frameDigitsOamId + i,
+                  SpriteSize_8x8, SpriteColorFormat_Bmp,
+                  gfxNum[framesDigits[i]]);
     }
     oamUpdate(&oamSub);
 }
+
 void drawAnimationSpeed(){
     u16 frame = 60/animation.speed;
     oamSetGfx(&oamSub, animFpsOamId, SpriteSize_8x8,
@@ -1242,24 +1254,26 @@ void setEditorSprites()
         char device[16];
         fsGetDevice(device, sizeof(device));
         
-        
-        gfxPalette = oamAllocateGfx(&oamSub, SpriteSize_64x64, SpriteColorFormat_Bmp);
         gfx32 = oamAllocateGfx(&oamSub, SpriteSize_32x32, SpriteColorFormat_Bmp);
         gfx16 = oamAllocateGfx(&oamSub, SpriteSize_16x16, SpriteColorFormat_Bmp);
         gfx8 = oamAllocateGfx(&oamSub, SpriteSize_8x8, SpriteColorFormat_Bmp);
         gfx5 = oamAllocateGfx(&oamSub, SpriteSize_8x8, SpriteColorFormat_Bmp);
         gfxBrushSettings = oamAllocateGfx(&oamSub, SpriteSize_32x16, SpriteColorFormat_Bmp);
         gfxBucketSettings = oamAllocateGfx(&oamSub, SpriteSize_32x8, SpriteColorFormat_Bmp);
+        gfxPalette = oamAllocateGfx(&oamSub, SpriteSize_64x64, SpriteColorFormat_Bmp);
+        gfxGrid = oamAllocateGfx(&oamSub, SpriteSize_64x64, SpriteColorFormat_Bmp);
         gfxRGBsliders = oamAllocateGfx(&oamSub, SpriteSize_64x32, SpriteColorFormat_Bmp);
         gfxRgbSliderSel = oamAllocateGfx(&oamSub, SpriteSize_8x8, SpriteColorFormat_Bmp);
-        gfxGrid = oamAllocateGfx(&oamSub, SpriteSize_64x64, SpriteColorFormat_Bmp);
         dmaFillWords(0, gfxGrid, 64 * 64 * 2);
         gfxSelectedZone = oamAllocateGfx(&oamMain, SpriteSize_64x64, SpriteColorFormat_Bmp);
         gfxBG = oamAllocateGfx(&oamSub, SpriteSize_32x32, SpriteColorFormat_Bmp);
 
-        for(int i = 0; i<11;i++){
+        for(int i = 0; i<12;i++){
             gfxNum[i] = oamAllocateGfx(&oamSub, SpriteSize_8x8, SpriteColorFormat_Bmp);
         }
+        dmaFillWords(0, gfxNum[11], 8*8*2);
+
+        //Nitro FS
         if (!nitroFSInit(NULL))
             return;//ojalá que no falle
 
@@ -1270,9 +1284,8 @@ void setEditorSprites()
         importACS16("nitro:/brushSettings.acs",gfxBrushSettings,stack);
         importACS16("nitro:/rgbSliders.acs",gfxRGBsliders,stack);
         importACS16("nitro:/rgbSliderSel.acs",gfxRgbSliderSel,stack);
-        importACS16("nitro:/rgbSliderSel.acs",gfxRgbSliderSel,stack);
         importACS16("nitro:/bucketSettings.acs",gfxBucketSettings,stack);
-
+        
         importACS16("nitro:/0.acs",gfxNum[0],stack);
         importACS16("nitro:/1.acs",gfxNum[1],stack);
         importACS16("nitro:/2.acs",gfxNum[2],stack);
@@ -1290,9 +1303,10 @@ void setEditorSprites()
         //random
         showBrushSettings = true;
         framesDigits[4] = 10;
+    }else{
+        updatePal(0,&palettePos);
     }
     initSprites = false;
-    updatePal(0,&palettePos);
 
     oamSet(&oamSub, paletteOamId,
            192, 64,
@@ -1451,8 +1465,11 @@ void initBitmap()
     vramSetBankA(VRAM_A_MAIN_BG);
     vramSetBankB(VRAM_B_MAIN_SPRITE);
 
+    #ifdef DEBUG_CPU
     consoleInit(&topConsole, 0, BgType_Text4bpp, BgSize_T_256x256, 31, 4, true, true);
     consoleSetFont(&topConsole, &font);
+    #endif
+
     oamClear(&oamSub, 0, 128);
     videoSetModeSub(MODE_5_2D); // pantalla inferior bitmap
     vramSetBankC(VRAM_C_SUB_BG);
@@ -1533,6 +1550,9 @@ void textMode()
     if (currentSubMode == SUB_TEXT)
         return; // ya estamos en texto
     currentSubMode = SUB_TEXT;
+
+    consoleInit(&topConsole, 0, BgType_Text4bpp, BgSize_T_256x256, 31, 4, true, true);
+    consoleSetFont(&topConsole, &font);
 
     for(int i = 0; i < surfaceSize; i++){
         const u16 col = pixelsTopVRAM[i];
@@ -1631,8 +1651,10 @@ void bitmapMode()
     vramSetBankA(VRAM_A_MAIN_BG);
     vramSetBankB(VRAM_B_MAIN_SPRITE); // sprites en VRAM B
     int bgMain = bgInit(3, BgType_Bmp16, BgSize_B16_128x128, 0, 0);
+    #ifdef DEBUG_CPU
     consoleInit(&topConsole, 0, BgType_Text4bpp, BgSize_T_256x256, 31, 4, true, true);
     consoleSetFont(&topConsole, &font);
+    #endif
 
     oamClear(&oamMain, 0, 128);
     oamClear(&oamSub, 0, 128);
@@ -1682,10 +1704,8 @@ inline void calculateCpuUsage(u64 ticks)
     REG_DIV_DENOM = 56;
     REG_DIVCNT = 0;  // Iniciar división
 }
-#endif
 void drawInfo()
 {
-#ifdef DEBUG_CPU
     printf("\033[s\033[H");
     calculateCpuUsage(frameEndTime - frameStartTime);
     timerStop();
@@ -1704,9 +1724,8 @@ void drawInfo()
     printf("\nExt RAM:%d",extraRamSize);
     printf("\n%d",enableSDcardCache);
     timerContinue();
-#endif
 }
-
+#endif
 
 //============================================================= SD CARD ===============================================|
 
@@ -2081,6 +2100,14 @@ int main(int argc, char *argv[])
         drawColorPalette();
         submitVRAM(true,true);
     }
+    //código global y cosas
+    #ifdef DSiMode
+    if(isDSiMode()){
+        effectCount = EFFECT_COUNT;
+    }else{
+        effectCount = EFFECT_COUNT-2;
+    }
+    #endif
     programStart:
     //========================================================================WHILE LOOP!!!!!!!!!==========================================|
     while(1)
@@ -2093,9 +2120,7 @@ int main(int argc, char *argv[])
         kUp = keysUp();
         #ifdef DEBUG_CPU
             frameEndTime = timerRead();
-        #endif
-        drawInfo();
-        #ifdef DEBUG_CPU
+            drawInfo();
             timerReset();
             frameStartTime = timerRead();
         #endif
@@ -2342,6 +2367,8 @@ int main(int argc, char *argv[])
                     currentTool = (ToolType)(row + col);
                     if(currentTool == TOOL_BUCKET){
                         setBucketSettingsSprites(true);
+                    }else if(currentTool == TOOL_BRUSH){
+                        setBrushSettingsSprites(true);
                     }
                     // además dibujamos un contorno en dónde seleccionamos
                     s24x = col*24;
@@ -2665,8 +2692,6 @@ int main(int argc, char *argv[])
             previewPosAlpha--;
             updatePreviewPos();
         }
-        
-        //updateFPS();
 
         if (kUp & KEY_TOUCH && drew == true)
         {
@@ -2701,6 +2726,9 @@ int main(int argc, char *argv[])
 
     solo voy a decir que estoy trabajando en ordenar un poco este código
     - Alfombra de marzo
+
+    sigo en eso
+    - Alfo de octubre
     */
     return 0;
 }

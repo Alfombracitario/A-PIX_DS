@@ -2,9 +2,11 @@
 #include "effects.h"
 #include "avdslib.h"
 #include "formatsglobals.h"
-#include "camera.h"
+#include "camera.twl.h"
 
 #define clamp(v, lo, hi) ((v) < (lo) ? (lo) : ((v) > (hi) ? (hi) : (v)))
+
+u8 effectCount = EFFECT_COUNT;
 
 extern void drawSurfaceMain();
 extern void submitVRAM(bool _accurate, bool _wait);
@@ -14,6 +16,7 @@ extern u32 effectBackupPos;
 extern u32 kDown;
 extern u32 kUp;
 extern u16 stack[surfaceSize];
+
 
 EffectEntry effects[EFFECT_COUNT] = {
     { "Invert Colors"  ,    true,  0,   0,  0   },

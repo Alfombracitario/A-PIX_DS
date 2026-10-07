@@ -1,6 +1,6 @@
 #include "formatsglobals.h"
 #include "tools.h"
-
+extern bool imgChanges;
 // copia en el stack una parte de la imagen
 void copyFromSurfaceToStack()
 {
