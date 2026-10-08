@@ -34,14 +34,22 @@ If you want to run this app I recommend you to use TwilightMenu++ or unlaunch.
 - Color bucket — replace a palette index, an entire color across the image or just a zone
 - File browser with preview and smooth scrolling
 - Animation support
-- A lot of image effects
+- Animation info displayed on the bottom screen
+- Animations stored on RAM when there's free space (falls back to the SD card)
+- Built-in music player (`.wav` playback, keeps playing in sleep mode with headphones)
+- Audio sync option for animations
+- Preview resize (stretch preview to fill the screen, great for 4:3 images)
+- Camera support, take photos or videos with the DSi camera and use them as reference
+- Video recording (128x128 16bpp, adjustable FPS via the animation icons)
+- A lot of image effects (Invert colors, gray scale, brightness, etc)
 - Crop and expand images
 - Color reduction to N colors
 - A few easter eggs hidden somewhere in the app
-- DSi camera to take photos and use them as reference
-- various keys shortcuts
+- Various key shortcuts
 - ARGV support
 - Switch between DSi SD card or Flashcard
+- NDS memory expansion pak support
+- 3DS and DSi debugger extra memory support
 ---
 
 ## Controls
@@ -78,6 +86,7 @@ If you want to run this app I recommend you to use TwilightMenu++ or unlaunch.
 | PNG | 8bpp, direct color |
 | BMP | 4bpp, 8bpp, 24bpp |
 | PCX | 8bpp |
+| GIF | Animated |
 
 ### Console / Retro Formats
 
