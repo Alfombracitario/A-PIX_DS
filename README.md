@@ -128,8 +128,8 @@ Each frame must currently be exported individually,`.gif` export is not yet avai
 
 ## Current Limitations
 
-- Maximum image size: **128×128 pixels** (I plan to expand it)
-- you can use Redo 80 times!
+- Maximum image size: **128×128 pixels** (Expanding it to 256x256 right now!)
+  
 ---
 
 <img width="256" height="384" alt="githubiconapixds" src="https://github.com/user-attachments/assets/7670c65a-591c-4be7-95f6-85ec90b98b3d" />
