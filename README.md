@@ -120,10 +120,7 @@ A-Pix DS includes basic animation support: add frames, delete frames and change 
 
 <img width="260" height="35" alt="animation bar" src="https://github.com/user-attachments/assets/721bb411-0aa3-49f5-b847-38cdc4d5fdfb" />
 
-the app now is stable but pretty limited in this aspect.
-
-Each frame must currently be exported individually,`.gif` export is not yet available.  
-
+You can export your animation with `.gif` or RAW
 ---
 
 ## Current Limitations
